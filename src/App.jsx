@@ -4,6 +4,12 @@ import Dashboard from './pages/Dashboard'
 import Editor from './pages/Editor'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import AdminLayout from './pages/admin/AdminLayout'
+import SitesList from './pages/admin/SitesList'
+import CreateSite from './pages/admin/CreateSite'
+import EditSite from './pages/admin/EditSite'
+import ClientsList from './pages/admin/ClientsList'
+import CreateClient from './pages/admin/CreateClient'
 
 export default function App() {
   return (
@@ -29,17 +35,22 @@ export default function App() {
         }
       />
 
-      {/* Admin routes — Phase 4 */}
+      {/* Admin routes */}
       <Route
-        path="/admin/*"
+        path="/admin"
         element={
           <AdminRoute>
-            <div style={{ padding: '40px', fontFamily: 'sans-serif', color: '#78716c' }}>
-              Admin panel — coming in Phase 4
-            </div>
+            <AdminLayout />
           </AdminRoute>
         }
-      />
+      >
+        <Route index element={<Navigate to="/admin/sites" replace />} />
+        <Route path="sites" element={<SitesList />} />
+        <Route path="sites/new" element={<CreateSite />} />
+        <Route path="sites/:siteId" element={<EditSite />} />
+        <Route path="clients" element={<ClientsList />} />
+        <Route path="clients/new" element={<CreateClient />} />
+      </Route>
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />

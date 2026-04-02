@@ -1,0 +1,221 @@
+{
+  "business": {
+    "name": "Okanagan Porch Pumpkins",
+    "email": "hello@okanaganporchpumpkins.ca",
+    "phone_display": "(250) 555-PUMP",
+    "service_area": "Okanagan Valley, BC",
+    "tagline": "Bringing the magic of fall to your front door.",
+    "description": "Locally owned & operated in the beautiful Okanagan Valley."
+  },
+  "season": {
+    "year": "2026",
+    "delivery_start": "September 21",
+    "delivery_end": "October 21",
+    "delivery_range": "September 21 – October 21, 2026",
+    "pickup_window": "first two weeks of November"
+  },
+  "service_areas": [
+    "Kelowna",
+    "West Kelowna",
+    "Lake Country",
+    "Peachland",
+    "Summerland",
+    "Penticton",
+    "Vernon",
+    "Coldstream"
+  ],
+  "delivery_windows": [
+    "September 21–27",
+    "September 28 – October 4",
+    "October 5–11",
+    "October 12–18",
+    "October 19–21 (last window)"
+  ],
+  "packages": [
+    {
+      "number": 1,
+      "slug": "doorstep-drop",
+      "name": "The Doorstep Drop",
+      "price": "$479",
+      "tagline": "Fresh Okanagan pumpkins, straight to your door.",
+      "description": "A handpicked selection of 30 fresh Okanagan pumpkins delivered right to your door. Perfect for the DIY decorator who just needs great pumpkins.",
+      "best_for": "DIY decorators and pumpkin lovers who want to arrange their own display.",
+      "includes": [
+        "30 assorted pumpkins",
+        "Delivered to your door",
+        "No setup required",
+        "Pick your own arrangement"
+      ],
+      "pumpkin_breakdown": [
+        { "quantity": 6,  "type": "Large Jack-O'-Lantern pumpkins" },
+        { "quantity": 4,  "type": "Medium Jack-O'-Lantern pumpkins" },
+        { "quantity": 4,  "type": "White Ghost pumpkins" },
+        { "quantity": 12, "type": "Pie pumpkins" },
+        { "quantity": 4,  "type": "Specialty pumpkins (heirloom varieties, unique textures, or interesting colours)" }
+      ],
+      "note": "Add Professional Porch Styling to have us set it up for you!",
+      "image": "https://images.unsplash.com/photo-1698516525766-657c02a0f51d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdW1wa2luJTIwYm94JTIwZGVsaXZlcnklMjBhdXR1bW4lMjBoYXJ2ZXN0JTIwc2Vhc29uYWx8ZW58MXx8fHwxNzc0NzQ0MDU2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "highlight": false,
+      "badge": null
+    },
+    {
+      "number": 2,
+      "slug": "cozy-stoop",
+      "name": "The Cozy Stoop",
+      "price": "$949",
+      "tagline": "A warm fall welcome for any small porch or stoop.",
+      "description": "A charming, styled arrangement of 46 pumpkins and gourds that transforms a small porch or stoop into a warm fall welcome. Delivered and arranged by our team.",
+      "best_for": "Townhomes, condos, and smaller porches that need a big fall impression.",
+      "includes": [
+        "46 assorted pumpkins & gourds",
+        "Seasonal greenery accent",
+        "Professional delivery & setup",
+        "Styled by our team"
+      ],
+      "pumpkin_breakdown": [
+        { "quantity": 8,  "type": "Large Jack-O'-Lantern pumpkins" },
+        { "quantity": 8,  "type": "Medium Jack-O'-Lantern pumpkins" },
+        { "quantity": 6,  "type": "White Ghost pumpkins" },
+        { "quantity": 12, "type": "Pie pumpkins" },
+        { "quantity": 12, "type": "Specialty pumpkins (heirloom varieties, textured, or uniquely coloured)" }
+      ],
+      "note": null,
+      "image": "https://images.unsplash.com/photo-1730212571130-a70a5565f499?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdW1wa2luJTIwcG9yY2glMjBmYWxsJTIwZGVjb3JhdGlvbiUyMHNtYWxsJTIwZGlzcGxheXxlbnwxfHx8fDE3NzQ3NDQwNDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "highlight": false,
+      "badge": null
+    },
+    {
+      "number": 3,
+      "slug": "harvest-welcome",
+      "name": "The Harvest Welcome",
+      "price": "$1,449",
+      "tagline": "Stunning curb appeal — our sweet spot.",
+      "description": "A full, lush porch display with 53 pumpkins, gourds, and fall accents. This is our sweet spot — stunning curb appeal for any home.",
+      "best_for": "Homeowners wanting a full, magazine-worthy display without going overboard.",
+      "includes": [
+        "53 assorted pumpkins & gourds",
+        "1 hay bale",
+        "Seasonal fall accents",
+        "Professional delivery & setup"
+      ],
+      "pumpkin_breakdown": [
+        { "quantity": 2,  "type": "Grand Prize pumpkins (XL showstoppers)" },
+        { "quantity": 10, "type": "Large Jack-O'-Lantern pumpkins" },
+        { "quantity": 8,  "type": "Medium Jack-O'-Lantern pumpkins" },
+        { "quantity": 8,  "type": "White Ghost pumpkins" },
+        { "quantity": 0,  "type": "An assortment of Pie pumpkins" },
+        { "quantity": 16, "type": "Specialty pumpkins (heirlooms, unique textures, designer colours)" }
+      ],
+      "note": null,
+      "image": "https://images.unsplash.com/photo-1762094908796-0649dcf2aea9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdW1wa2luJTIwZmFsbCUyMGZyb250JTIwcG9yY2glMjBzdGVwcyUyMGhhbGxvd2VlbiUyMGRlY29yfGVufDF8fHx8MTc3NDc0NDA1MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "highlight": true,
+      "badge": "Most Popular"
+    },
+    {
+      "number": 4,
+      "slug": "grand-display",
+      "name": "The Grand Display",
+      "price": "$1,949",
+      "tagline": "Make your neighbours stop and stare.",
+      "description": "Make your neighbours stop and stare. A generous, layered arrangement of 76 pumpkins packed with colour, mums, and seasonal charm.",
+      "best_for": "Large porches, wide front stoops, and those who want maximum fall impact.",
+      "includes": [
+        "76 assorted pumpkins & gourds",
+        "2 hay bales",
+        "Seasonal mums",
+        "Fall florals & accents",
+        "Professional delivery & setup"
+      ],
+      "pumpkin_breakdown": [
+        { "quantity": 3,  "type": "Grand Prize pumpkins (jaw-dropping scale) — or 2 Grand Prize + 2 XL Jack-O'-Lanterns depending on porch size" },
+        { "quantity": 10, "type": "Large Jack-O'-Lantern pumpkins" },
+        { "quantity": 12, "type": "Medium Jack-O'-Lantern pumpkins" },
+        { "quantity": 16, "type": "Heirloom pumpkins (rare varieties in elegant tones)" },
+        { "quantity": 12, "type": "Assorted Pie pumpkins" },
+        { "quantity": 12, "type": "White Ghost pumpkins" },
+        { "quantity": 24, "type": "Mini pumpkins and ornamental gourds" }
+      ],
+      "note": null,
+      "image": "https://images.unsplash.com/photo-1634757701253-19522b371da6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsYXJnZSUyMHB1bXBraW4lMjBkaXNwbGF5JTIwZnJvbnQlMjBkb29yJTIwZmFsbCUyMGhhcnZlc3R8ZW58MXx8fHwxNzc0NzQ0MDUzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "highlight": false,
+      "badge": null
+    },
+    {
+      "number": 5,
+      "slug": "showstopper",
+      "name": "The Showstopper",
+      "price": "$949",
+      "tagline": "The ultimate fall statement. Custom. Curated. Unforgettable.",
+      "description": "The ultimate fall statement. A custom-curated display of 42 premium, hand-selected pumpkins arranged into a magazine-worthy porch transformation that turns heads all season long.",
+      "best_for": "Those who want a fully custom, premium display — quality and artistry over quantity.",
+      "includes": [
+        "42 premium hand-selected pumpkins & gourds",
+        "3 hay bales",
+        "Premium seasonal mums",
+        "Lanterns & fall florals",
+        "Custom styled arrangement",
+        "Professional delivery & setup"
+      ],
+      "pumpkin_breakdown": [
+        { "quantity": 8,  "type": "Large Jack-O'-Lantern pumpkins" },
+        { "quantity": 8,  "type": "Medium Jack-O'-Lantern pumpkins" },
+        { "quantity": 8,  "type": "White Ghost pumpkins" },
+        { "quantity": 0,  "type": "An assortment of Pie pumpkins" },
+        { "quantity": 12, "type": "Specialty pumpkins (heirloom varieties, textured, or uniquely coloured)" },
+        { "quantity": 2,  "type": "Hay Bales (for height, structure, and visual anchoring)" },
+        { "quantity": 0,  "type": "Ornamental gourds throughout for a polished finish" }
+      ],
+      "note": null,
+      "image": "https://images.unsplash.com/photo-1768765221321-e17bf49c8a0e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGFib3JhdGUlMjBwdW1wa2luJTIwcG9yY2glMjBhcnJhbmdlbWVudCUyMGZhbGwlMjBsdXh1cnklMjBob21lfGVufDF8fHx8MTc3NDc0NDA1M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "highlight": false,
+      "badge": "Best Value"
+    }
+  ],
+  "addons": [
+    {
+      "slug": "professional-styling",
+      "name": "Professional Porch Styling",
+      "tag": "Add-On for Package #1 Only",
+      "price": "$125",
+      "description": "Have our team come arrange your Package #1 pumpkins into a beautifully styled display on your porch. The perfect upgrade for those who want the look without the fuss.",
+      "image": "https://images.unsplash.com/photo-1739918038730-1c4c2e863c3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhdXR1bW4lMjBwdW1wa2lucyUyMGhheSUyMGJhbGUlMjBtdW1zJTIwcG9yY2glMjBkZWNvcmF0aW5nfGVufDF8fHx8MTc3NDc0NDA1MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "restricted": true
+    },
+    {
+      "slug": "pumpkin-pickup-composting",
+      "name": "Pumpkin Pick-Up & Composting",
+      "tag": "Any Package",
+      "price": "$99",
+      "description": "We'll swing by in early November to collect and compost your pumpkins — no mess, no fuss. Sit back and enjoy the last of fall.",
+      "image": "https://images.unsplash.com/photo-1698516525766-657c02a0f51d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdW1wa2luJTIwYm94JTIwZGVsaXZlcnklMjBhdXR1bW4lMjBoYXJ2ZXN0JTIwc2Vhc29uYWx8ZW58MXx8fHwxNzc0NzQ0MDU2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "restricted": false
+    },
+    {
+      "slug": "miniature-pumpkins",
+      "name": "24 Miniature Pumpkins",
+      "tag": "Any Package",
+      "price": "$75",
+      "description": "A beautiful basket of 24 mini pumpkins in a mix of colours — perfect for filling in gaps, lining steps, or decorating your indoor space.",
+      "image": "https://images.unsplash.com/photo-1731316762799-3c8173674f7e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtaW5pYXR1cmUlMjBzbWFsbCUyMHB1bXBraW5zJTIwYmFza2V0JTIwZmFsbHxlbnwxfHx8fDE3NzQ3NDQwNTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "restricted": false
+    },
+    {
+      "slug": "extra-hay-bale",
+      "name": "Extra Hay Bale",
+      "tag": "Any Package",
+      "price": "$30",
+      "description": "Add an extra hay bale to your display for more height, texture, and that quintessential fall farmhouse look.",
+      "image": "https://images.unsplash.com/photo-1739918038730-1c4c2e863c3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhdXR1bW4lMjBwdW1wa2lucyUyMGhheSUyMGJhbGUlMjBtdW1zJTIwcG9yY2glMjBkZWNvcmF0aW5nfGVufDF8fHx8MTc3NDc0NDA1MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "restricted": false
+    },
+    {
+      "slug": "gift-cards",
+      "name": "Gift Cards",
+      "tag": "Any Package",
+      "price": "From $100",
+      "description": "Give the gift of fall! Our gift cards can be applied to any package or add-on. Perfect for neighbours, friends, or family who deserve a beautiful porch this autumn.",
+      "image": "https://images.unsplash.com/photo-1739918038730-1c4c2e863c3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhdXR1bW4lMjBwdW1wa2lucyUyMGhheSUyMGJhbGUlMjBtdW1zJTIwcG9yY2glMjBkZWNvcmF0aW5nfGVufDF8fHx8MTc3NDc0NDA1MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "restricted": false
+    }
+  ]
+}

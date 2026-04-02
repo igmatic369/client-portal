@@ -1,0 +1,241 @@
+{
+  "business": {
+    "name": "LD Nails & Spa",
+    "phone_display": "(778) 754-7488",
+    "phone_tel": "7787547488",
+    "address_line1": "3640 Gossett Rd #107",
+    "address_line2": "West Kelowna, BC V4T 2P5",
+    "address_country": "Canada",
+    "address_city_short": "West Kelowna, BC",
+    "location_note": "Mountainview Plaza, conveniently located next to BMO",
+    "facebook_url": "https://www.facebook.com/LDspaandnails",
+    "facebook_handle": "@LDspaandnails",
+    "established": "2018"
+  },
+  "hours": [
+    { "day": "Monday",    "time": "9 a.m. – 7 p.m." },
+    { "day": "Tuesday",   "time": "9 a.m. – 7 p.m." },
+    { "day": "Wednesday", "time": "9 a.m. – 7 p.m." },
+    { "day": "Thursday",  "time": "9 a.m. – 8 p.m." },
+    { "day": "Friday",    "time": "9 a.m. – 8 p.m." },
+    { "day": "Saturday",  "time": "10 a.m. – 5 p.m." },
+    { "day": "Sunday",    "time": "10 a.m. – 5 p.m." }
+  ],
+  "hero": {
+    "headline": "LD Nails & Spa",
+    "subheadline": "Professional Nail Care Since 2018",
+    "body": "Experience exceptional nail care in a clean, relaxing environment in West Kelowna, BC.",
+    "cta_primary_text": "Book Appointment",
+    "cta_primary_link": "/contact",
+    "cta_secondary_link": "tel:7787547488",
+    "services_section_headline": "Our Services",
+    "gallery_section_headline": "Our Work",
+    "gallery_section_body": "From classic elegance to bold custom creations, see what we can do for you",
+    "reviews_section_headline": "What Our Clients Say",
+    "cta_section_headline": "Ready for Your Perfect Nails?",
+    "cta_section_body": "Book your appointment today or walk in anytime. We're here to make you look and feel amazing.",
+    "featured_services": [
+      { "title": "Artificial Nails",   "description": "Liquid gel, pink & white, ombré designs" },
+      { "title": "Manicure & Pedicure","description": "Shellac, French, and regular polish" },
+      { "title": "Spa Services",       "description": "Massage, facials, and deluxe treatments" }
+    ]
+  },
+  "about": {
+    "hero_image": "15736e354918731f917a1f3488f07fde8d38b060.png",
+    "hero_headline": "About LD Nails & Spa",
+    "hero_subtext": "Professional nail care serving West Kelowna since 2018",
+    "section_title": "We're Here for You",
+    "body_paragraphs": [
+      "LD Nails & Spa has been serving West Kelowna since 2018 with professional nail care that's personalized to every client. Our skilled team delivers results you'll love, in a clean and relaxing environment.",
+      "From the moment you walk in, you'll notice the difference — attentive staff, premium products, and a commitment to making your experience exceptional."
+    ],
+    "features": [
+      "Detailed, committed professional staff",
+      "Premium products & sterilized tools",
+      "Custom designs for your unique style",
+      "Clean, relaxing, welcoming environment",
+      "Walk-ins welcome · Appointments preferred"
+    ],
+    "values": [
+      {
+        "icon": "Heart",
+        "title": "Client-Focused Care",
+        "description": "We treat every client with personalized attention and care, ensuring you get exactly what you want."
+      },
+      {
+        "icon": "Award",
+        "title": "Professional Excellence",
+        "description": "Our skilled technicians stay current with the latest techniques and trends in nail care."
+      },
+      {
+        "icon": "Users",
+        "title": "Community Connection",
+        "description": "Since 2018, we've been proud to serve the West Kelowna community with dedication and passion."
+      }
+    ],
+    "values_section_headline": "Our Values",
+    "visit_title": "Visit Us Today",
+    "visit_body": "You'll find us in Mountainview Plaza, conveniently located next to BMO. We warmly welcome both walk-ins and appointments, and our dedicated team is ready to provide you with an exceptional nail care experience."
+  },
+  "services": [
+    {
+      "title": "Artificial Nails",
+      "image": "https://images.unsplash.com/photo-1772322586754-34c9e6f5be6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuYWlsJTIwYXJ0JTIwZ2VsfGVufDF8fHx8MTc3NDY1MDI5Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "Beautiful artificial nail enhancements including liquid gel, pink & white, ombré, and solar nails.",
+      "items": ["Liquid Gel","Liquid Gel Refill","Pink & White","Pink & White Refill","Ombré","Ombré Refill","Solar","Solar Refill","Take Off","Repair"]
+    },
+    {
+      "title": "Nail Care",
+      "image": "https://images.unsplash.com/photo-1659391542239-9648f307c0b1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW5pY3VyZSUyMG5haWxzJTIwcG9saXNofGVufDF8fHx8MTc3NDY1MDI5NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "description": "Professional manicure and pedicure services with regular polish, shellac, and French styles.",
+      "items": ["Shellac Manicure","French Manicure","Regular Manicure","Shellac Pedicure","French Pedicure","Regular Pedicure","Color Hands","Color Toes","Shellac Take Off","Nail's Cut"]
+    },
+    {
+      "title": "Kids Services",
+      "image": "https://images.unsplash.com/photo-1579111603292-c9e06d327f25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGlsZCUyMGtpZCUyMG1hbmljdXJlJTIwbmFpbHN8ZW58MXx8fHwxNzc0NjUzNzUwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
+      "description": "Special services for kids including manicures, pedicures, and polish.",
+      "items": ["Kid Manicure","Kid Pedicure","Kid Color"]
+    },
+    {
+      "title": "Waxing - Face",
+      "image": "24be29bb73a2e84b8c7fdbc8198c3c85a2f0bb62.png",
+      "description": "Professional facial waxing services for smooth, hair-free skin.",
+      "items": ["Eyebrows","Upper Lip","Chin","Full Face","Under Arms"]
+    },
+    {
+      "title": "Waxing - Body",
+      "image": "c8faceb5c34049249f6b754326f4f4487caf7af8.png",
+      "description": "Complete body waxing services using gentle products for long-lasting smoothness.",
+      "items": ["Full Arms","Half Arms","Chest","Back","Bikini","Full Legs","Half Legs"]
+    },
+    {
+      "title": "Spa & Extras",
+      "image": "072f04a4199cb92ca0a639672f63b43e2383fa3c.png",
+      "description": "Indulge in our spa services and special treatments for the ultimate relaxation experience.",
+      "items": ["Massage Relax","Facial","Deluxe Pedicure","Paraffin Wax"]
+    }
+  ],
+  "pricing": {
+    "intro": "Affordable luxury for all your nail care needs. Prices may vary based on design complexity and technician expertise.",
+    "sections": [
+      {
+        "key": "artificialNails",
+        "title": "Artificial Nails",
+        "items": [
+          { "name": "Liquid Gel",           "price": "$65+" },
+          { "name": "Liquid Gel Refill",    "price": "$50+" },
+          { "name": "Pink & White",          "price": "$58+" },
+          { "name": "Pink & White Refill",  "price": "$48+" },
+          { "name": "Ombré",                "price": "$65+" },
+          { "name": "Ombré Refill",         "price": "$55+" },
+          { "name": "Solar",                "price": "$58+" },
+          { "name": "Solar Refill",         "price": "$48+" },
+          { "name": "Take Off",             "price": "$20"  },
+          { "name": "Repair",               "price": "$8+"  }
+        ]
+      },
+      {
+        "key": "nailCare",
+        "title": "Nail Care",
+        "items": [
+          { "name": "Shellac Manicure",  "price": "$35" },
+          { "name": "French Manicure",   "price": "$40" },
+          { "name": "Regular Manicure",  "price": "$25" },
+          { "name": "Shellac Pedicure",  "price": "$50" },
+          { "name": "French Pedicure",   "price": "$55" },
+          { "name": "Regular Pedicure",  "price": "$38" },
+          { "name": "Color Hands",       "price": "$15" },
+          { "name": "Color Toes",        "price": "$17" },
+          { "name": "Shellac Take Off",  "price": "$10" },
+          { "name": "Nail's Cut",        "price": "$10" }
+        ]
+      },
+      {
+        "key": "kids",
+        "title": "Kids",
+        "items": [
+          { "name": "Kid Manicure", "price": "$18" },
+          { "name": "Kid Pedicure", "price": "$28" },
+          { "name": "Kid Color",    "price": "$15" }
+        ]
+      },
+      {
+        "key": "waxFace",
+        "title": "Wax - Face",
+        "items": [
+          { "name": "Eyebrows",   "price": "$13" },
+          { "name": "Upper Lip",  "price": "$10" },
+          { "name": "Chin",       "price": "$10" },
+          { "name": "Full Face",  "price": "$40" },
+          { "name": "Under Arms", "price": "$15" }
+        ]
+      },
+      {
+        "key": "waxBody",
+        "title": "Wax - Body",
+        "items": [
+          { "name": "Full Arms",  "price": "$40"  },
+          { "name": "Half Arms",  "price": "$25"  },
+          { "name": "Chest",      "price": "$35"  },
+          { "name": "Back",       "price": "$40"  },
+          { "name": "Bikini",     "price": "$25+" },
+          { "name": "Full Legs",  "price": "$55"  },
+          { "name": "Half Legs",  "price": "$35"  }
+        ]
+      },
+      {
+        "key": "spaExtras",
+        "title": "Spa & Extras",
+        "items": [
+          { "name": "Massage Relax",   "price": "$80/hr" },
+          { "name": "Facial",          "price": "Ask us" },
+          { "name": "Deluxe Pedicure", "price": "$70"    },
+          { "name": "Paraffin Wax",    "price": "$15"    }
+        ]
+      }
+    ]
+  },
+  "gallery": {
+    "headline": "Our Work",
+    "body": "Explore our gallery of stunning nail designs and see why our clients love LD Nails & Spa. From classic elegance to bold custom creations, we bring your vision to life.",
+    "cta_headline": "Love What You See?",
+    "cta_body": "Book your appointment today and let our talented team create beautiful nails just for you. Bring your inspiration or let us design something unique!",
+    "follow_headline": "Follow Us on Facebook",
+    "follow_body": "See more of our work and stay updated with our latest designs",
+    "images": [
+      { "src": "465baa8fad8011195e9bf4f7baf76ce59e97519a.png", "alt": "Sparkly blue nail art" },
+      { "src": "d211537bac7890d079d791f49268136fb3f939cf.png", "alt": "Dark snowflake nails" },
+      { "src": "c2d2de62788f03c67dd1dfe2b33fc1453611a033.png", "alt": "Red glitter nails" },
+      { "src": "e1d568fb9971c687fd1abd4beb1b7571b88dd8e9.png", "alt": "Black stiletto nails" },
+      { "src": "0980411578198a3504dcc2a46067dba285e30264.png", "alt": "Customer nail design" },
+      { "src": "0fddeb213719a1e0668c9bf96fdefa95c3448b04.png", "alt": "Customer nail art" },
+      { "src": "c909d004d5a04fc3f6be75eba3d1640006ac95a2.png", "alt": "Customer nail design" }
+    ]
+  },
+  "reviews": [
+    {
+      "text": "Amazing experience. So friendly and accommodating. Won't go anywhere else now!",
+      "author": "Sarah M."
+    },
+    {
+      "text": "Has to be one of the best nail salons in Kelowna & Westbank! Very professional & attentive!",
+      "author": "Jennifer L."
+    },
+    {
+      "text": "Have been coming here for years. Best service ever. My nails always look great and I get tons of compliments on them. Super grateful to have found a place that understands how picky I can be! Thanks.",
+      "author": "Michelle K."
+    }
+  ],
+  "contact": {
+    "headline": "Contact & Book",
+    "intro": "Ready for beautiful nails? Book your appointment or walk in anytime. We're here to make you look and feel amazing!",
+    "form_title": "Book an Appointment",
+    "form_success": "Thank you! We'll contact you soon to confirm your appointment.",
+    "services_list": ["Artificial Nails","Manicure","Pedicure","Waxing","Massage","Facial","Kids Services","Other"],
+    "walk_ins_note": "Walk-ins welcome · Appointments preferred",
+    "gift_cards_note": "Gift cards available for purchase in-person only",
+    "storefront_image": "e32dea6253fd169a95d88a87593b5744ce009cc5.png",
+    "google_maps_embed": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2504.6611179609!2d-119.59388492377637!3d49.858182!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x5482754f35d67a71%3A0x4e18c9b130f89dbf!2s3640%20Gossett%20Rd%20%23107%2C%20West%20Kelowna%2C%20BC%20V4T%202N4!5e0!3m2!1sen!2sca!4v1234567890!5m2!1sen!2sca",
+    "google_maps_link": "https://www.google.com/maps/search/?api=1&query=3640+Gossett+Rd+%23107,+West+Kelowna,+BC+V4T+2P5,+Canada"
+  }
+}

@@ -1,0 +1,107 @@
+-- Set the editor schema for Okanagan Porch Pumpkins
+-- Run this in the Supabase SQL Editor (Dashboard → SQL Editor → New query)
+-- After running, verify with: SELECT slug, schema FROM sites WHERE slug = 'okanagan-porch-pumpkins';
+
+UPDATE sites
+SET schema = '{
+  "tabs": [
+    {
+      "key": "business",
+      "label": "Business Info",
+      "fields": [
+        { "key": "name",             "label": "Business Name",   "type": "text",        "required": true, "maxLength": 80 },
+        { "key": "tagline",          "label": "Tagline",          "type": "text",        "maxLength": 120 },
+        { "key": "phone_display",    "label": "Phone",            "type": "phone" },
+        { "key": "email",            "label": "Email",            "type": "email" },
+        { "key": "service_area",     "label": "Service Area",     "type": "text",        "maxLength": 100 },
+        { "key": "description",      "label": "About",            "type": "textarea",    "maxLength": 500 },
+        { "key": "hero_description", "label": "Hero Description", "type": "textarea",    "maxLength": 300 },
+        { "key": "about_paragraphs", "label": "About Paragraphs", "type": "simple_list", "item_label": "Paragraph" }
+      ]
+    },
+    {
+      "key": "season",
+      "label": "Season",
+      "fields": [
+        { "key": "year",           "label": "Year",           "type": "text", "maxLength": 4 },
+        { "key": "delivery_start", "label": "Delivery Start", "type": "text", "maxLength": 30 },
+        { "key": "delivery_end",   "label": "Delivery End",   "type": "text", "maxLength": 30 },
+        { "key": "delivery_range", "label": "Delivery Range", "type": "text", "maxLength": 60 },
+        { "key": "pickup_window",  "label": "Pick-Up Window", "type": "text", "maxLength": 60 }
+      ]
+    },
+    {
+      "key": "service_areas",
+      "label": "Service Areas",
+      "fields": [
+        { "key": "service_areas", "label": "Cities We Serve", "type": "simple_list", "item_label": "City" }
+      ]
+    },
+    {
+      "key": "delivery_windows",
+      "label": "Delivery",
+      "fields": [
+        { "key": "delivery_windows", "label": "Delivery Windows", "type": "simple_list", "item_label": "Window" }
+      ]
+    },
+    {
+      "key": "packages",
+      "label": "Packages",
+      "fields": [
+        {
+          "key": "packages",
+          "label": "Pumpkin Packages",
+          "type": "list",
+          "item_label": "Package",
+          "item_fields": [
+            { "key": "number",      "label": "Package #",    "type": "text",     "maxLength": 5 },
+            { "key": "name",        "label": "Package Name", "type": "text",     "required": true, "maxLength": 60 },
+            { "key": "slug",        "label": "URL Slug",     "type": "text",     "maxLength": 40 },
+            { "key": "price",       "label": "Price",        "type": "text",     "maxLength": 20 },
+            { "key": "tagline",     "label": "Tagline",      "type": "text",     "maxLength": 120 },
+            { "key": "description", "label": "Description",  "type": "textarea", "maxLength": 400 },
+            { "key": "best_for",    "label": "Best For",     "type": "text",     "maxLength": 150 },
+            { "key": "note",        "label": "Note",         "type": "text",     "maxLength": 200 },
+            { "key": "highlight",   "label": "Highlight (Most Popular badge)", "type": "toggle" },
+            { "key": "badge",       "label": "Badge Text",   "type": "text",     "maxLength": 30 },
+            { "key": "image",       "label": "Image URL",    "type": "url" },
+            { "key": "includes",    "label": "What''s Included", "type": "simple_list", "item_label": "Item" },
+            {
+              "key": "pumpkin_breakdown",
+              "label": "Pumpkin Breakdown",
+              "type": "list",
+              "item_label": "Row",
+              "item_fields": [
+                { "key": "quantity", "label": "Quantity",     "type": "text", "maxLength": 10 },
+                { "key": "type",     "label": "Pumpkin Type", "type": "text", "maxLength": 100 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "addons",
+      "label": "Add-Ons",
+      "fields": [
+        {
+          "key": "addons",
+          "label": "Available Add-Ons",
+          "type": "list",
+          "item_label": "Add-On",
+          "item_fields": [
+            { "key": "name",        "label": "Add-On Name",  "type": "text",     "required": true, "maxLength": 60 },
+            { "key": "slug",        "label": "URL Slug",     "type": "text",     "maxLength": 40 },
+            { "key": "price",       "label": "Price",        "type": "text",     "maxLength": 20 },
+            { "key": "tag",         "label": "Tag",          "type": "text",     "maxLength": 40 },
+            { "key": "description", "label": "Description",  "type": "textarea", "maxLength": 300 },
+            { "key": "image",       "label": "Image URL",    "type": "url" },
+            { "key": "restricted",  "label": "Restricted to Package #1", "type": "toggle" }
+          ]
+        }
+      ]
+    }
+  ]
+}'::jsonb,
+    updated_at = now()
+WHERE slug = 'okanagan-porch-pumpkins';
