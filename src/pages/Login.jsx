@@ -231,7 +231,7 @@ export default function Login() {
         {error && <div style={s.error}>{error}</div>}
         {resetSent && (
           <div style={s.success}>
-            Password reset email sent! Check your inbox for a link to set a new password.
+            Check your email for a password reset link.
           </div>
         )}
 
