@@ -21,7 +21,17 @@ const statusText = {
   dirty:  'Unsaved changes',
   saving: 'Saving…',
   saved:  'Draft saved ✓',
-  error:  'Save failed — will retry',
+  error:  'Save failed',
+}
+
+// Immutably set a value at a dot-path in a nested object
+function setNestedValue(obj, dotPath, value) {
+  const keys = dotPath.split('.')
+  const result = JSON.parse(JSON.stringify(obj))
+  let cursor = result
+  for (let i = 0; i < keys.length - 1; i++) cursor = cursor[keys[i]]
+  cursor[keys[keys.length - 1]] = value
+  return result
 }
 
 export default function Editor() {
@@ -34,15 +44,18 @@ export default function Editor() {
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [saveStatus, setSaveStatus] = useState('idle')
+  const [viewMode, setViewMode]   = useState('preview') // 'preview' | 'form'
 
   const [publishing, setPublishing]     = useState(false)
-  const [publishDone, setPublishDone]   = useState(false)   // briefly shows "Published ✓"
-  const [banner, setBanner]             = useState(null)    // { type: 'success'|'error', message }
+  const [publishDone, setPublishDone]   = useState(false)
+  const [banner, setBanner]             = useState(null)
 
   const debounceTimer    = useRef(null)
   const bannerTimer      = useRef(null)
   const publishDoneTimer = useRef(null)
   const latestContent    = useRef(null)
+  const iframeRef        = useRef(null)
+  const iframeReadyRef   = useRef(false)
 
   // ── Load site + schema + draft ──────────────────────────────────────────────
   useEffect(() => {
@@ -54,7 +67,7 @@ export default function Editor() {
 
       const { data: siteRow, error: siteErr } = await supabase
         .from('sites')
-        .select('id, name, slug, schema')
+        .select('id, name, slug, schema, netlify_url')
         .eq('id', siteId)
         .single()
 
@@ -72,7 +85,6 @@ export default function Editor() {
         .limit(1)
         .maybeSingle()
 
-      // Determine initial content: draft → GitHub → test data fallback
       let initialContent
       if (draft?.content_json) {
         initialContent = draft.content_json
@@ -94,12 +106,54 @@ export default function Editor() {
         setContent(initialContent)
         latestContent.current = initialContent
         setLoading(false)
+        // If site has no netlify_url, default to form view
+        if (!siteRow.netlify_url) setViewMode('form')
       }
     }
 
     load()
     return () => { cancelled = true }
   }, [siteId])
+
+  // ── Send content to iframe ──────────────────────────────────────────────────
+  function sendContentToIframe(contentObj) {
+    if (iframeRef.current?.contentWindow && iframeReadyRef.current && contentObj) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'preview-content-update', content: contentObj },
+        '*'
+      )
+    }
+  }
+
+  // ── Listen for messages from iframe bridge ──────────────────────────────────
+  useEffect(() => {
+    function handleMessage(event) {
+      if (!event.data || typeof event.data !== 'object') return
+
+      if (event.data.type === 'preview-ready') {
+        iframeReadyRef.current = true
+        sendContentToIframe(latestContent.current)
+        return
+      }
+
+      if (event.data.type === 'preview-field-change') {
+        const { key, value } = event.data
+        const newContent = setNestedValue(latestContent.current, key, value)
+        latestContent.current = newContent
+        setContent(newContent)
+        setSaveStatus('dirty')
+        sendContentToIframe(newContent)
+
+        clearTimeout(debounceTimer.current)
+        debounceTimer.current = setTimeout(() => {
+          save(latestContent.current)
+        }, AUTOSAVE_DELAY)
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, []) // uses refs — safe with empty deps
 
   // ── Auto-save ───────────────────────────────────────────────────────────────
   const save = async (contentToSave) => {
@@ -123,6 +177,7 @@ export default function Editor() {
     setContent(newContent)
     latestContent.current = newContent
     setSaveStatus('dirty')
+    sendContentToIframe(newContent)
 
     clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
@@ -132,7 +187,6 @@ export default function Editor() {
 
   // ── Publish ─────────────────────────────────────────────────────────────────
   const handlePublish = async () => {
-    // Flush any pending auto-save first so the draft is current
     clearTimeout(debounceTimer.current)
     if (saveStatus === 'dirty') {
       await save(latestContent.current)
@@ -143,7 +197,7 @@ export default function Editor() {
     clearTimeout(bannerTimer.current)
 
     const { error: fnErr } = await supabase.functions.invoke('publish-content', {
-      body: { site_id: siteId, content_json: content },
+      body: { site_id: siteId, content_json: latestContent.current },
     })
 
     setPublishing(false)
@@ -156,17 +210,13 @@ export default function Editor() {
         message: 'Changes published! Your site will update in about 2 minutes.',
       })
       setSaveStatus('idle')
-
-      // Auto-dismiss success banner
       bannerTimer.current = setTimeout(() => setBanner(null), PUBLISH_SUCCESS_DISMISS)
-
-      // Briefly show "Published ✓" on the button
       setPublishDone(true)
       publishDoneTimer.current = setTimeout(() => setPublishDone(false), PUBLISH_DONE_LABEL_DURATION)
     }
   }
 
-  // ── Cleanup timers ──────────────────────────────────────────────────────────
+  // ── Cleanup ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       clearTimeout(debounceTimer.current)
@@ -175,7 +225,7 @@ export default function Editor() {
     }
   }, [])
 
-  // ── Derived publish button state ────────────────────────────────────────────
+  // ── Derived state ───────────────────────────────────────────────────────────
   const publishDisabled = publishing || saveStatus === 'saving'
 
   const publishLabel = publishing
@@ -184,11 +234,11 @@ export default function Editor() {
       ? 'Published ✓'
       : 'Publish'
 
-  const publishStyle = {
-    padding: '8px 18px',
+  const publishBtnStyle = {
+    padding: '7px 16px',
     borderRadius: '7px',
     border: 'none',
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: 600,
     cursor: publishDisabled ? 'not-allowed' : 'pointer',
     transition: 'background 0.2s, color 0.2s',
@@ -199,10 +249,12 @@ export default function Editor() {
         : { background: '#ea580c', color: '#fff' }),
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const previewUrl = site?.netlify_url ? `${site.netlify_url}?preview=true` : null
+
+  // ── Loading / Error ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={pageWrap}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f4' }}>
         <p style={{ color: '#78716c', fontSize: '14px' }}>Loading editor…</p>
       </div>
     )
@@ -210,75 +262,114 @@ export default function Editor() {
 
   if (error) {
     return (
-      <div style={pageWrap}>
-        <p style={{ color: '#ef4444', marginBottom: '12px' }}>{error}</p>
-        <button type="button" onClick={() => navigate('/')} style={{ color: '#ea580c', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          ← Back to dashboard
-        </button>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f4' }}>
+        <div>
+          <p style={{ color: '#ef4444', marginBottom: '12px' }}>{error}</p>
+          <button type="button" onClick={() => navigate('/')} style={{ color: '#ea580c', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            ← Back to dashboard
+          </button>
+        </div>
       </div>
     )
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f4' }}>
-      {/* Top bar */}
-      <header style={{
-        background: '#fff',
-        borderBottom: '1px solid #e7e5e4',
-        padding: '0 24px',
-        height: '60px',
+    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#f5f5f4' }}>
+
+      {/* ── Floating Toolbar ─────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'fixed',
+        top: '12px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 10000,
+        height: '48px',
+        background: '#ffffff',
+        borderRadius: '12px',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.07)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '16px',
+        padding: '0 16px',
+        gap: '4px',
+        maxWidth: '720px',
+        width: 'max-content',
+        whiteSpace: 'nowrap',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+
+        {/* Exit */}
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          style={{ background: 'none', border: 'none', color: '#44403c', fontSize: '13px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px' }}
+        >
+          ← Exit
+        </button>
+
+        <Divider />
+
+        {/* Site name */}
+        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1c1917', padding: '0 4px' }}>
+          {site?.name}
+        </span>
+
+        <Divider />
+
+        {/* Save status */}
+        <span style={{ fontSize: '12px', padding: '0 4px', minWidth: '100px', textAlign: 'center', ...statusStyle[saveStatus] }}>
+          {statusText[saveStatus]}
+        </span>
+
+        <Divider />
+
+        {/* View toggle */}
+        {previewUrl ? (
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onClick={() => setViewMode((v) => v === 'preview' ? 'form' : 'preview')}
             style={{
-              background: 'none',
-              border: '1.5px solid #e7e5e4',
+              background: viewMode === 'form' ? '#fff7ed' : '#f5f5f4',
+              border: `1px solid ${viewMode === 'form' ? '#fed7aa' : '#e7e5e4'}`,
               borderRadius: '6px',
-              padding: '6px 12px',
-              fontSize: '13px',
-              color: '#44403c',
-              cursor: 'pointer',
+              padding: '5px 12px',
+              fontSize: '12px',
               fontWeight: 500,
+              cursor: 'pointer',
+              color: viewMode === 'form' ? '#ea580c' : '#44403c',
             }}
           >
-            ← Dashboard
+            {viewMode === 'preview' ? 'Form View' : 'Preview'}
           </button>
-          {site && (
-            <span style={{ fontSize: '15px', fontWeight: 600, color: '#1c1917' }}>
-              {site.name}
-            </span>
-          )}
-        </div>
+        ) : (
+          <span style={{ fontSize: '12px', color: '#a8a29e', padding: '0 4px' }}>No preview URL</span>
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '13px', ...statusStyle[saveStatus] }}>
-            {statusText[saveStatus]}
-          </span>
-          <button
-            type="button"
-            disabled={publishDisabled}
-            onClick={handlePublish}
-            style={publishStyle}
-          >
-            {publishLabel}
-          </button>
-        </div>
-      </header>
+        <Divider />
 
-      {/* Banner */}
+        {/* Publish */}
+        <button
+          type="button"
+          disabled={publishDisabled}
+          onClick={handlePublish}
+          style={publishBtnStyle}
+        >
+          {publishLabel}
+        </button>
+      </div>
+
+      {/* ── Banner ────────────────────────────────────────────────────────────── */}
       {banner && (
         <div style={{
+          position: 'fixed',
+          top: '72px',
+          left: 0,
+          right: 0,
+          zIndex: 9999,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 24px',
-          fontSize: '14px',
+          padding: '10px 24px',
+          fontSize: '13px',
           fontWeight: 500,
           ...(banner.type === 'success'
             ? { background: '#f0fdf4', color: '#15803d', borderBottom: '1px solid #bbf7d0' }
@@ -288,16 +379,7 @@ export default function Editor() {
           <button
             type="button"
             onClick={() => { setBanner(null); clearTimeout(bannerTimer.current) }}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '16px',
-              color: 'inherit',
-              opacity: 0.6,
-              padding: '0 4px',
-              lineHeight: 1,
-            }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'inherit', opacity: 0.6, padding: '0 4px', lineHeight: 1 }}
             aria-label="Dismiss"
           >
             ✕
@@ -305,44 +387,60 @@ export default function Editor() {
         </div>
       )}
 
-      {/* Content */}
-      <main style={{ maxWidth: '860px', margin: '0 auto', padding: '36px 24px' }}>
-        {schema && content ? (
-          <div style={{
-            background: '#fff',
-            border: '1.5px solid #e7e5e4',
-            borderRadius: '12px',
-            padding: '28px',
-          }}>
-            <SchemaForm
-              schema={schema}
-              content={content}
-              onChange={handleChange}
-              siteSlug={site?.slug}
-            />
-          </div>
-        ) : (
-          <div style={{
-            padding: '40px',
-            background: '#fafaf9',
-            border: '1.5px dashed #d4d0cc',
-            borderRadius: '12px',
-            textAlign: 'center',
-            color: '#78716c',
-            fontSize: '14px',
-          }}>
-            {!schema
-              ? 'No schema configured for this site. Run the SQL setup in Supabase.'
-              : 'No content loaded.'}
-          </div>
-        )}
-      </main>
+      {/* ── Preview iframe (always mounted, hidden in form view) ─────────────── */}
+      {previewUrl && (
+        <iframe
+          ref={iframeRef}
+          src={previewUrl}
+          title={site?.name}
+          style={{
+            display: viewMode === 'preview' ? 'block' : 'none',
+            width: '100%',
+            height: '100vh',
+            border: 'none',
+          }}
+          onLoad={() => {
+            // Reset ready flag — bridge will re-send 'preview-ready' after load
+            iframeReadyRef.current = false
+          }}
+        />
+      )}
+
+      {/* ── Form view ─────────────────────────────────────────────────────────── */}
+      {viewMode === 'form' && (
+        <div style={{ height: '100vh', overflowY: 'auto', paddingTop: '72px' }}>
+          <main style={{ maxWidth: '860px', margin: '0 auto', padding: '24px 24px 48px' }}>
+            {schema && content ? (
+              <div style={{ background: '#fff', border: '1.5px solid #e7e5e4', borderRadius: '12px', padding: '28px' }}>
+                <SchemaForm
+                  schema={schema}
+                  content={content}
+                  onChange={handleChange}
+                  siteSlug={site?.slug}
+                />
+              </div>
+            ) : (
+              <div style={{
+                padding: '40px',
+                background: '#fafaf9',
+                border: '1.5px dashed #d4d0cc',
+                borderRadius: '12px',
+                textAlign: 'center',
+                color: '#78716c',
+                fontSize: '14px',
+              }}>
+                {!schema
+                  ? 'No schema configured for this site. Run the SQL setup in Supabase.'
+                  : 'No content loaded.'}
+              </div>
+            )}
+          </main>
+        </div>
+      )}
     </div>
   )
 }
 
-const pageWrap = {
-  maxWidth: '820px',
-  margin: '0 auto',
-  padding: '32px 24px',
+function Divider() {
+  return <div style={{ width: '1px', height: '20px', background: '#e7e5e4', margin: '0 6px', flexShrink: 0 }} />
 }
