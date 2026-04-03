@@ -165,9 +165,15 @@
       if (!currentEditor) return
       var saved = currentEditor
       currentEditor = null
+      // Update the element's textContent immediately so the user sees the
+      // new value without waiting for the postMessage round-trip to complete.
+      if (!revert) {
+        saved.element.textContent = saved.input.value
+      }
       saved.input.replaceWith(saved.element)
       // On Escape: revert to original value
       if (revert) {
+        saved.element.textContent = saved.rawValue
         window.parent.postMessage({ type: 'preview-field-change', key: saved.key, value: saved.rawValue }, '*')
       }
     }
