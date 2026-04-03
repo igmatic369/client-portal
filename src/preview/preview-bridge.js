@@ -51,6 +51,7 @@
 
   window.addEventListener('message', function (event) {
     if (!event.data || event.data.type !== 'preview-content-update') return
+    console.log('[preview-bridge] received preview-content-update', event.data.content)
     window.__PREVIEW_CONTENT__ = event.data.content
     window.dispatchEvent(new CustomEvent('preview-content-changed'))
   })

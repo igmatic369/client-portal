@@ -400,8 +400,11 @@ export default function Editor() {
             border: 'none',
           }}
           onLoad={() => {
-            // Reset ready flag — bridge will re-send 'preview-ready' after load
-            iframeReadyRef.current = false
+            // onLoad fires AFTER the bridge has already sent preview-ready and
+            // iframeReadyRef was set to true. Do NOT reset here — it would block
+            // all subsequent sendContentToIframe calls.
+            // For full-page reloads, the bridge re-sends preview-ready which
+            // re-initialises the handshake.
           }}
         />
       )}
