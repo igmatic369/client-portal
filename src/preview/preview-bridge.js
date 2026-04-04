@@ -10,6 +10,15 @@
     }, obj)
   }
 
+  // Returns text from direct child text nodes only (not from descendant elements)
+  function getDirectText(el) {
+    var text = ''
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3) text += el.childNodes[i].textContent
+    }
+    return text.trim()
+  }
+
   // ── CSS Injection ──────────────────────────────────────────────────────────
 
   var style = document.createElement('style')
@@ -43,45 +52,78 @@
     '[data-reorderable] {',
     '  position: relative;',
     '}',
-    '.__reorder-arrows {',
+    '.__drag-handle {',
     '  position: absolute;',
     '  top: 4px;',
     '  left: 4px;',
-    '  display: flex;',
-    '  flex-direction: column;',
-    '  gap: 2px;',
-    '  z-index: 9998;',
-    '  pointer-events: all;',
-    '}',
-    '.__reorder-btn {',
-    '  width: 20px;',
-    '  height: 20px;',
-    '  background: rgba(0,0,0,0.55);',
+    '  width: 22px;',
+    '  height: 22px;',
+    '  background: rgba(0,0,0,0.45);',
     '  color: #fff;',
-    '  border: none;',
     '  border-radius: 4px;',
-    '  font-size: 11px;',
+    '  font-size: 13px;',
     '  display: flex;',
     '  align-items: center;',
     '  justify-content: center;',
-    '  cursor: pointer;',
+    '  pointer-events: none;',
+    '  z-index: 9998;',
     '  line-height: 1;',
     '  user-select: none;',
-    '  padding: 0;',
-    '}',
-    '.__reorder-btn:hover:not(:disabled) {',
-    '  background: rgba(0,0,0,0.8);',
-    '}',
-    '.__reorder-btn:disabled {',
-    '  opacity: 0.25;',
-    '  cursor: default;',
     '}',
   ].join('\n')
   document.head.appendChild(style)
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  var currentEditor = null // { element, key, rawValue, input }
+  var currentEditor = null  // { element, key, rawValue, input }
+
+  var drag = {
+    pending: false,
+    active: false,
+    timer: null,
+    element: null,
+    arrayPath: null,
+    fromIndex: null,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0,
+    ghost: null,
+    indicator: null,
+    toIndex: null,
+    happened: false,
+  }
+
+  // ── Content Map (for auto-detection) ──────────────────────────────────────
+
+  var contentMap = Object.create(null)  // trimmed text → dotPath
+
+  function buildContentMap(obj, prefix) {
+    if (obj == null) return
+    if (typeof obj === 'string') {
+      var t = obj.trim()
+      if (t.length >= 2) contentMap[t] = prefix
+      return
+    }
+    if (typeof obj === 'number') {
+      var s = String(obj)
+      if (s.length >= 2) contentMap[s] = prefix
+      return
+    }
+    if (Array.isArray(obj)) {
+      for (var i = 0; i < obj.length; i++) {
+        buildContentMap(obj[i], prefix ? prefix + '.' + i : String(i))
+      }
+      return
+    }
+    if (typeof obj === 'object') {
+      for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          buildContentMap(obj[key], prefix ? prefix + '.' + key : key)
+        }
+      }
+    }
+  }
 
   // ── Message Listener (parent → iframe) ────────────────────────────────────
 
@@ -89,12 +131,14 @@
     if (!event.data || event.data.type !== 'preview-content-update') return
     console.log('[preview-bridge] received preview-content-update', event.data.content)
     window.__PREVIEW_CONTENT__ = event.data.content
+    contentMap = Object.create(null)
+    buildContentMap(window.__PREVIEW_CONTENT__, '')
     window.dispatchEvent(new CustomEvent('preview-content-changed'))
   })
 
   // ── Content Update Handler ─────────────────────────────────────────────────
   // Syncs all tagged elements' textContent to the latest preview content.
-  // Skips the element currently being edited (has an active input).
+  // Skips the element currently being edited.
 
   window.addEventListener('preview-content-changed', function () {
     if (!window.__PREVIEW_CONTENT__) return
@@ -105,109 +149,314 @@
     })
   })
 
-  // ── Reorder Arrows ─────────────────────────────────────────────────────────
+  // ── Drag-and-Drop ──────────────────────────────────────────────────────────
 
-  function injectReorderArrows(el) {
-    if (el.querySelector('.__reorder-arrows')) return
+  function startDrag() {
+    drag.pending = false
+    drag.active = true
 
-    var arrayPath = el.getAttribute('data-reorderable')
-    var index = parseInt(el.getAttribute('data-reorder-index'), 10)
+    var el = drag.element
+    var rect = el.getBoundingClientRect()
+    drag.offsetX = drag.startX - rect.left
+    drag.offsetY = drag.startY - rect.top
 
-    var arr = window.__PREVIEW_CONTENT__ ? getNestedValue(window.__PREVIEW_CONTENT__, arrayPath) : null
-    var length = Array.isArray(arr) ? arr.length : 0
+    // Fade the original element
+    el.style.opacity = '0.4'
 
-    var container = document.createElement('div')
-    container.className = '__reorder-arrows'
+    // Create ghost — a clone without reorder attributes or injected handles
+    var g = el.cloneNode(true)
+    g.removeAttribute('data-reorderable')
+    g.removeAttribute('data-reorder-index')
+    var injected = g.querySelectorAll('.__drag-handle, .__preview-pencil')
+    for (var i = 0; i < injected.length; i++) injected[i].remove()
+    g.style.position = 'fixed'
+    g.style.top = rect.top + 'px'
+    g.style.left = rect.left + 'px'
+    g.style.width = rect.width + 'px'
+    g.style.height = rect.height + 'px'
+    g.style.opacity = '0.85'
+    g.style.pointerEvents = 'none'
+    g.style.zIndex = '10001'
+    g.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)'
+    g.style.borderRadius = '12px'
+    g.style.transform = 'scale(1.02)'
+    g.style.transition = 'none'
+    g.style.margin = '0'
+    document.body.appendChild(g)
+    drag.ghost = g
 
-    var upBtn = document.createElement('button')
-    upBtn.className = '__reorder-btn'
-    upBtn.textContent = '↑'
-    upBtn.disabled = index === 0
-    upBtn.addEventListener('click', function (e) {
-      e.stopPropagation()
-      e.preventDefault()
-      window.parent.postMessage(
-        { type: 'preview-reorder', arrayPath: arrayPath, fromIndex: index, toIndex: index - 1 },
-        '*'
-      )
-    })
+    // Create drop-position indicator
+    var ind = document.createElement('div')
+    ind.style.cssText = 'position:fixed;height:3px;background:#3b82f6;border-radius:2px;z-index:10000;pointer-events:none;display:none;'
+    document.body.appendChild(ind)
+    drag.indicator = ind
 
-    var downBtn = document.createElement('button')
-    downBtn.className = '__reorder-btn'
-    downBtn.textContent = '↓'
-    downBtn.disabled = index >= length - 1
-    downBtn.addEventListener('click', function (e) {
-      e.stopPropagation()
-      e.preventDefault()
-      window.parent.postMessage(
-        { type: 'preview-reorder', arrayPath: arrayPath, fromIndex: index, toIndex: index + 1 },
-        '*'
-      )
-    })
-
-    container.appendChild(upBtn)
-    container.appendChild(downBtn)
-    el.appendChild(container)
+    document.body.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
   }
+
+  function updateDropTarget(clientX, clientY) {
+    var siblings = Array.prototype.slice.call(
+      document.querySelectorAll('[data-reorderable="' + drag.arrayPath + '"]')
+    )
+    if (!siblings.length) {
+      drag.indicator.style.display = 'none'
+      drag.toIndex = null
+      return
+    }
+
+    siblings.sort(function (a, b) {
+      return a.getBoundingClientRect().top - b.getBoundingClientRect().top
+    })
+
+    var visualIndex = siblings.length  // default: after last item
+    var indTop = null, indLeft = null, indWidth = null
+
+    for (var i = 0; i < siblings.length; i++) {
+      var rect = siblings[i].getBoundingClientRect()
+      if (clientY < rect.top + rect.height / 2) {
+        // Cursor is in the upper half — drop before this sibling
+        visualIndex = parseInt(siblings[i].getAttribute('data-reorder-index'), 10)
+        indTop = rect.top - 2
+        indLeft = rect.left
+        indWidth = rect.width
+        break
+      } else {
+        // Cursor is in the lower half — drop after this sibling (so far)
+        visualIndex = parseInt(siblings[i].getAttribute('data-reorder-index'), 10) + 1
+        indTop = rect.bottom + 1
+        indLeft = rect.left
+        indWidth = rect.width
+      }
+    }
+
+    // Adjust for the removal of fromIndex shifting subsequent indices
+    drag.toIndex = visualIndex <= drag.fromIndex ? visualIndex : visualIndex - 1
+
+    if (indTop !== null) {
+      drag.indicator.style.display = 'block'
+      drag.indicator.style.top = indTop + 'px'
+      drag.indicator.style.left = indLeft + 'px'
+      drag.indicator.style.width = indWidth + 'px'
+    }
+  }
+
+  function cancelDragPending() {
+    clearTimeout(drag.timer)
+    drag.pending = false
+    drag.element = null
+    drag.timer = null
+  }
+
+  function endActiveDrag(send) {
+    if (send && drag.toIndex !== null && drag.toIndex !== drag.fromIndex) {
+      window.parent.postMessage({
+        type: 'preview-reorder',
+        arrayPath: drag.arrayPath,
+        fromIndex: drag.fromIndex,
+        toIndex: drag.toIndex,
+      }, '*')
+    }
+    if (drag.element) drag.element.style.opacity = ''
+    if (drag.ghost) { drag.ghost.remove(); drag.ghost = null }
+    if (drag.indicator) { drag.indicator.remove(); drag.indicator = null }
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    drag.happened = true  // suppress the click event that follows mouseup
+    drag.active = false
+    drag.pending = false
+    drag.element = null
+    drag.timer = null
+    drag.arrayPath = null
+    drag.fromIndex = null
+    drag.toIndex = null
+  }
+
+  // ── Tags to skip for editing/hover ─────────────────────────────────────────
+
+  var SKIP_TAGS = { INPUT: 1, TEXTAREA: 1, BUTTON: 1, SCRIPT: 1, STYLE: 1, SELECT: 1, A: 1 }
 
   // ── Hover Highlighting (event delegation) ──────────────────────────────────
 
   document.addEventListener('mouseover', function (e) {
-    // Reorder arrows
-    var reorderEl = e.target.closest('[data-reorderable]')
-    if (reorderEl) injectReorderArrows(reorderEl)
+    if (drag.active) return  // don't inject UI while dragging
 
-    // Text edit pencil
+    // Drag handle for reorderable containers
+    var reorderEl = e.target.closest('[data-reorderable]')
+    if (reorderEl && !reorderEl.querySelector('.__drag-handle')) {
+      var handle = document.createElement('span')
+      handle.className = '__drag-handle'
+      handle.textContent = '\u2807'  // ⠇ braille six-dot pattern (drag hint)
+      reorderEl.appendChild(handle)
+    }
+
+    // Pencil for explicit data-content-key elements
     var el = e.target.closest('[data-content-key]')
-    if (!el) return
-    if (currentEditor && currentEditor.element === el) return
-    if (!el.querySelector('.__preview-pencil')) {
-      var pencil = document.createElement('span')
-      pencil.className = '__preview-pencil'
-      pencil.textContent = '\u270F' // ✏ pencil
-      el.appendChild(pencil)
+    if (el && !(currentEditor && currentEditor.element === el)) {
+      if (!el.querySelector('.__preview-pencil')) {
+        var pencil = document.createElement('span')
+        pencil.className = '__preview-pencil'
+        pencil.textContent = '\u270F'
+        el.appendChild(pencil)
+      }
+      return  // explicit key found — don't also run auto-detect for this hover
+    }
+
+    // Pencil for auto-detected text elements (check target only — no walk-up for perf)
+    if (!el && !SKIP_TAGS[e.target.tagName]) {
+      var directText = getDirectText(e.target)
+      // Fallback for pure-leaf elements (only text nodes, no element children)
+      if (!directText) {
+        var hasElChild = false
+        for (var j = 0; j < e.target.childNodes.length; j++) {
+          if (e.target.childNodes[j].nodeType === 1) { hasElChild = true; break }
+        }
+        if (!hasElChild) directText = e.target.textContent.trim()
+      }
+      if (directText.length >= 2 && contentMap[directText] !== undefined
+          && !e.target.querySelector('.__preview-pencil')) {
+        var autoP = document.createElement('span')
+        autoP.className = '__preview-pencil'
+        autoP.textContent = '\u270F'
+        e.target.appendChild(autoP)
+      }
     }
   })
 
   document.addEventListener('mouseout', function (e) {
-    // Reorder arrows
+    if (drag.active) return
+
+    // Remove drag handle when the cursor leaves the reorderable container
     var reorderEl = e.target.closest('[data-reorderable]')
     if (reorderEl && !(e.relatedTarget && reorderEl.contains(e.relatedTarget))) {
-      var arrows = reorderEl.querySelector('.__reorder-arrows')
-      if (arrows) arrows.remove()
+      var handle = reorderEl.querySelector('.__drag-handle')
+      if (handle) handle.remove()
     }
 
-    // Text edit pencil
-    var el = e.target.closest('[data-content-key]')
+    // Remove pencil — covers both explicit [data-content-key] and auto-detected
+    var pencilHost = e.target.closest('[data-content-key]') || e.target
+    if (pencilHost && !(e.relatedTarget && pencilHost.contains(e.relatedTarget))) {
+      var pencil = pencilHost.querySelector('.__preview-pencil')
+      if (pencil) pencil.remove()
+    }
+  })
+
+  // ── Drag Events ────────────────────────────────────────────────────────────
+
+  document.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return
+    if (SKIP_TAGS[e.target.tagName]) return
+    if (currentEditor) return
+
+    var el = e.target.closest('[data-reorderable]')
     if (!el) return
-    if (e.relatedTarget && el.contains(e.relatedTarget)) return
-    var pencil = el.querySelector('.__preview-pencil')
-    if (pencil) pencil.remove()
+
+    drag.pending = true
+    drag.element = el
+    drag.arrayPath = el.getAttribute('data-reorderable')
+    drag.fromIndex = parseInt(el.getAttribute('data-reorder-index'), 10)
+    drag.startX = e.clientX
+    drag.startY = e.clientY
+    drag.happened = false
+
+    drag.timer = setTimeout(startDrag, 200)
+  })
+
+  document.addEventListener('mousemove', function (e) {
+    if (drag.pending && !drag.active) {
+      var dx = e.clientX - drag.startX
+      var dy = e.clientY - drag.startY
+      if (Math.sqrt(dx * dx + dy * dy) > 5) cancelDragPending()
+      return
+    }
+    if (!drag.active) return
+
+    drag.ghost.style.left = (e.clientX - drag.offsetX) + 'px'
+    drag.ghost.style.top = (e.clientY - drag.offsetY) + 'px'
+    updateDropTarget(e.clientX, e.clientY)
+  })
+
+  document.addEventListener('mouseup', function () {
+    if (drag.active) {
+      endActiveDrag(true)
+    } else if (drag.pending) {
+      cancelDragPending()
+      // drag.happened stays false — click fires normally
+    }
   })
 
   // ── Inline Edit (event delegation) ────────────────────────────────────────
 
+  // Walk up from target to find an element whose direct text is in contentMap
+  function findEditableEl(target) {
+    var el = target
+    for (var depth = 0; depth < 4; depth++) {
+      if (!el || el === document.body) return null
+      if (SKIP_TAGS[el.tagName]) return null
+
+      var text = getDirectText(el)
+      // Also use full textContent for pure-leaf elements (no element children)
+      if (!text) {
+        var hasElChild = false
+        for (var i = 0; i < el.childNodes.length; i++) {
+          if (el.childNodes[i].nodeType === 1) { hasElChild = true; break }
+        }
+        if (!hasElChild) text = el.textContent.trim()
+      }
+
+      if (text.length >= 2 && contentMap[text] !== undefined) return el
+
+      el = el.parentElement
+    }
+    return null
+  }
+
   document.addEventListener('click', function (e) {
-    // Ignore clicks that originated from reorder buttons
-    if (e.target.closest('.__reorder-arrows')) return
+    // Suppress the click that fires immediately after a completed drag
+    if (drag.happened) { drag.happened = false; return }
 
     var el = e.target.closest('[data-content-key]')
-    if (!el) return
-    if (currentEditor) return // already editing something
+    var key = null
+
+    if (el) {
+      // Explicit key — existing path
+      key = el.getAttribute('data-content-key')
+    } else {
+      // Auto-detect: search contentMap for a matching text value
+      el = findEditableEl(e.target)
+      if (el) {
+        var text = getDirectText(el)
+        if (!text) {
+          var hasElChild = false
+          for (var i = 0; i < el.childNodes.length; i++) {
+            if (el.childNodes[i].nodeType === 1) { hasElChild = true; break }
+          }
+          if (!hasElChild) text = el.textContent.trim()
+        }
+        key = contentMap[text]
+        if (key) {
+          // Tag the element permanently so future preview-content-changed syncs work
+          el.setAttribute('data-content-key', key)
+        } else {
+          el = null
+        }
+      }
+    }
+
+    if (!el || !key) return
+    if (currentEditor) return
+
     e.preventDefault()
     e.stopPropagation()
     activateEdit(el)
   })
 
   function activateEdit(element) {
-    // Remove hover pencil icon
     var pencil = element.querySelector('.__preview-pencil')
     if (pencil) pencil.remove()
 
     var key = element.getAttribute('data-content-key')
 
-    // Get raw value from preview content, not from rendered textContent
-    // (rendered text may include prefixes or transforms)
     var rawValue
     if (window.__PREVIEW_CONTENT__) {
       var val = getNestedValue(window.__PREVIEW_CONTENT__, key)
@@ -216,12 +465,10 @@
       rawValue = element.textContent
     }
 
-    // Decide between single-line input and textarea
     var tagName = element.tagName.toLowerCase()
     var isBlock = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'section'].indexOf(tagName) !== -1
     var useTextarea = isBlock || rawValue.length > 80
 
-    // Copy visual styles from the original element
     var cs = window.getComputedStyle(element)
     var rect = element.getBoundingClientRect()
 
@@ -229,9 +476,7 @@
     input.value = rawValue
 
     var styleProps = ['fontFamily', 'fontSize', 'fontWeight', 'color', 'lineHeight', 'textAlign', 'letterSpacing']
-    styleProps.forEach(function (prop) {
-      input.style[prop] = cs[prop]
-    })
+    styleProps.forEach(function (prop) { input.style[prop] = cs[prop] })
     input.style.background = 'rgba(255,255,255,0.97)'
     input.style.border = '2px solid #3b82f6'
     input.style.borderRadius = '4px'
@@ -248,12 +493,10 @@
 
     currentEditor = { element: element, key: key, rawValue: rawValue, input: input }
 
-    // Swap element for input in the DOM
     element.replaceWith(input)
     input.focus()
     input.select()
 
-    // Send field changes to parent portal on every keystroke
     input.addEventListener('input', function () {
       window.parent.postMessage({ type: 'preview-field-change', key: key, value: input.value }, '*')
     })
@@ -262,13 +505,10 @@
       if (!currentEditor) return
       var saved = currentEditor
       currentEditor = null
-      // Update the element's textContent immediately so the user sees the
-      // new value without waiting for the postMessage round-trip to complete.
       if (!revert) {
         saved.element.textContent = saved.input.value
       }
       saved.input.replaceWith(saved.element)
-      // On Escape: revert to original value
       if (revert) {
         saved.element.textContent = saved.rawValue
         window.parent.postMessage({ type: 'preview-field-change', key: saved.key, value: saved.rawValue }, '*')
