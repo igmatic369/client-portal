@@ -28,6 +28,20 @@ function reorderArray(obj, arrayPath, fromIndex, toIndex) {
   return result
 }
 
+// Returns a human-readable relative time string
+function relativeTime(date) {
+  if (!date) return null
+  const diffMs = Date.now() - new Date(date).getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 10) return 'just now'
+  if (diffSec < 60) return `${diffSec}s ago`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin} min ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr} hr ago`
+  return new Date(date).toLocaleDateString()
+}
+
 export default function Editor() {
   const { siteId } = useParams()
   const navigate = useNavigate()
@@ -42,8 +56,10 @@ export default function Editor() {
   // Save state
   const [dirty, setDirty]         = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
+  // Timestamp of the last persisted save (from Supabase updated_at or set on save)
+  const [lastSaveTime, setLastSaveTime] = useState(null)
 
-  // Draft history (max 3 entries, newest first)
+  // Draft history: [{ content, time }] — max 3, newest first — in-session saves
   const [draftHistory, setDraftHistory] = useState([])
 
   // Publish state
@@ -56,9 +72,13 @@ export default function Editor() {
   const [resetting, setResetting]       = useState(false)
   const resetRef                        = useRef(null)
 
+  // Ticker to force re-render of relative times every 30s
+  const [, setTick] = useState(0)
+
   const bannerTimer      = useRef(null)
   const publishDoneTimer = useRef(null)
   const savedTimer       = useRef(null)
+  const tickTimer        = useRef(null)
   const latestContent    = useRef(null)
   const iframeRef        = useRef(null)
   const iframeReadyRef   = useRef(false)
@@ -85,7 +105,7 @@ export default function Editor() {
 
       const { data: draft } = await supabase
         .from('content_drafts')
-        .select('content_json')
+        .select('content_json, updated_at')
         .eq('site_id', siteId)
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -111,6 +131,7 @@ export default function Editor() {
         setSchema(siteRow.schema ?? null)
         setContent(initialContent)
         latestContent.current = initialContent
+        if (draft?.updated_at) setLastSaveTime(draft.updated_at)
         setLoading(false)
         if (!siteRow.netlify_url) setViewMode('form')
       }
@@ -119,6 +140,12 @@ export default function Editor() {
     load()
     return () => { cancelled = true }
   }, [siteId])
+
+  // ── Tick every 30s to keep relative times fresh ─────────────────────────────
+  useEffect(() => {
+    tickTimer.current = setInterval(() => setTick((n) => n + 1), 30000)
+    return () => clearInterval(tickTimer.current)
+  }, [])
 
   // ── Close reset dropdown on outside click ───────────────────────────────────
   useEffect(() => {
@@ -179,10 +206,11 @@ export default function Editor() {
   // ── Save draft ──────────────────────────────────────────────────────────────
   const save = async (contentToSave) => {
     setSaveStatus('saving')
+    const now = new Date().toISOString()
     const { error: saveErr } = await supabase
       .from('content_drafts')
       .upsert(
-        { site_id: siteId, content_json: contentToSave, updated_at: new Date().toISOString() },
+        { site_id: siteId, content_json: contentToSave, updated_at: now },
         { onConflict: 'site_id' }
       )
 
@@ -191,6 +219,7 @@ export default function Editor() {
     } else {
       setSaveStatus('saved')
       setDirty(false)
+      setLastSaveTime(now)
       clearTimeout(savedTimer.current)
       savedTimer.current = setTimeout(() => setSaveStatus('idle'), 3000)
     }
@@ -198,8 +227,11 @@ export default function Editor() {
 
   const handleSaveDraft = () => {
     if (!dirty || saveStatus === 'saving') return
-    // Push current content to draft history before saving new version
-    setDraftHistory((prev) => [latestContent.current, ...prev].slice(0, 3))
+    // Push current content + timestamp to draft history before saving new version
+    setDraftHistory((prev) => [
+      { content: latestContent.current, time: new Date().toISOString() },
+      ...prev,
+    ].slice(0, 3))
     save(latestContent.current)
   }
 
@@ -217,10 +249,7 @@ export default function Editor() {
 
     let newContent = null
 
-    if (type === 'history-0' || type === 'history-1' || type === 'history-2') {
-      const idx = parseInt(type.split('-')[1], 10)
-      newContent = draftHistory[idx] ?? null
-    } else if (type === 'last-save') {
+    if (type === 'last-save') {
       const { data } = await supabase
         .from('content_drafts')
         .select('content_json')
@@ -229,6 +258,9 @@ export default function Editor() {
         .limit(1)
         .maybeSingle()
       newContent = data?.content_json ?? null
+    } else if (type.startsWith('history-')) {
+      const idx = parseInt(type.split('-')[1], 10)
+      newContent = draftHistory[idx]?.content ?? null
     } else if (type === 'original') {
       const { data, error: fnErr } = await supabase.functions.invoke('fetch-content', {
         body: { site_id: siteId },
@@ -254,7 +286,10 @@ export default function Editor() {
   // ── Publish ─────────────────────────────────────────────────────────────────
   const handlePublish = async () => {
     if (dirty) {
-      setDraftHistory((prev) => [latestContent.current, ...prev].slice(0, 3))
+      setDraftHistory((prev) => [
+        { content: latestContent.current, time: new Date().toISOString() },
+        ...prev,
+      ].slice(0, 3))
       await save(latestContent.current)
     }
 
@@ -287,6 +322,7 @@ export default function Editor() {
       clearTimeout(bannerTimer.current)
       clearTimeout(publishDoneTimer.current)
       clearTimeout(savedTimer.current)
+      clearInterval(tickTimer.current)
     }
   }, [])
 
@@ -294,17 +330,8 @@ export default function Editor() {
   const publishDisabled = publishing || saveStatus === 'saving'
   const saveDraftDisabled = !dirty || saveStatus === 'saving'
 
-  const publishLabel = publishing
-    ? 'Publishing…'
-    : publishDone
-      ? 'Published ✓'
-      : 'Publish'
-
-  const saveDraftLabel = saveStatus === 'saving'
-    ? 'Saving…'
-    : saveStatus === 'saved'
-      ? 'Saved ✓'
-      : 'Save Draft'
+  const publishLabel = publishing ? 'Publishing…' : publishDone ? 'Published ✓' : 'Publish'
+  const saveDraftLabel = saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Draft'
 
   const publishBtnStyle = {
     padding: '7px 16px',
@@ -402,7 +429,7 @@ export default function Editor() {
         alignItems: 'center',
         padding: '0 16px',
         gap: '4px',
-        maxWidth: '860px',
+        maxWidth: '920px',
         width: 'max-content',
         whiteSpace: 'nowrap',
       }}>
@@ -487,42 +514,27 @@ export default function Editor() {
               border: '1px solid #e7e5e4',
               borderRadius: '10px',
               boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-              minWidth: '200px',
+              minWidth: '230px',
               overflow: 'hidden',
               zIndex: 10001,
             }}>
-              {draftHistory.length > 0 && (
+              <ResetItem
+                label="Reset to last save"
+                sub={lastSaveTime ? relativeTime(lastSaveTime) : 'Reload saved draft'}
+                onClick={() => handleReset('last-save')}
+              />
+              {draftHistory.map((entry, i) => (
                 <ResetItem
-                  label="Reset to last save"
-                  sub="Your most recent saved draft"
-                  onClick={() => handleReset('last-save')}
+                  key={entry.time}
+                  label={`Session save ${i + 1}`}
+                  sub={relativeTime(entry.time)}
+                  onClick={() => handleReset(`history-${i}`)}
                 />
-              )}
-              {draftHistory.length >= 1 && (
-                <ResetItem
-                  label="Reset to 2nd last save"
-                  sub="Before the previous save"
-                  onClick={() => handleReset('history-0')}
-                />
-              )}
-              {draftHistory.length >= 2 && (
-                <ResetItem
-                  label="Reset to 3rd last save"
-                  sub="Two saves ago"
-                  onClick={() => handleReset('history-1')}
-                />
-              )}
-              {draftHistory.length === 0 && (
-                <ResetItem
-                  label="Reset to last save"
-                  sub="Reload current saved draft"
-                  onClick={() => handleReset('last-save')}
-                />
-              )}
+              ))}
               <div style={{ height: '1px', background: '#f0efee', margin: '2px 0' }} />
               <ResetItem
                 label="Reset to original"
-                sub="Content from GitHub (pre-edits)"
+                sub="From GitHub — before any edits"
                 onClick={() => handleReset('original')}
                 danger
               />
@@ -589,8 +601,6 @@ export default function Editor() {
             // onLoad fires AFTER the bridge has already sent preview-ready and
             // iframeReadyRef was set to true. Do NOT reset here — it would block
             // all subsequent sendContentToIframe calls.
-            // For full-page reloads, the bridge re-sends preview-ready which
-            // re-initialises the handshake.
           }}
         />
       )}
@@ -653,7 +663,7 @@ function ResetItem({ label, sub, onClick, danger }) {
       onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
     >
       <div style={{ fontSize: '13px', fontWeight: 500, color: danger ? '#dc2626' : '#1c1917' }}>{label}</div>
-      <div style={{ fontSize: '11px', color: '#a8a29e', marginTop: '1px' }}>{sub}</div>
+      {sub && <div style={{ fontSize: '11px', color: '#a8a29e', marginTop: '1px' }}>{sub}</div>}
     </button>
   )
 }

@@ -421,51 +421,47 @@
     return null
   }
 
+  // ── Capture-phase listener: block navigation on editable <a> tags ────────────
+  // Fires BEFORE the browser processes the href, so preventDefault() actually works.
+  // Anchors inside <nav> or <header> are navigation-only — never intercepted.
+  document.addEventListener('click', function (e) {
+    if (e.ctrlKey || e.metaKey) return
+    var anchor = e.target.closest('a')
+    if (!anchor) return
+    // Let nav/header links always navigate
+    if (anchor.closest('nav') || anchor.closest('header')) return
+    var hasKey = anchor.hasAttribute('data-content-key')
+    var autoKey = !hasKey ? resolveContentKey(anchor) : null
+    if (hasKey || autoKey) {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      // Tag now so the bubble handler can find the key
+      if (!hasKey && autoKey) anchor.setAttribute('data-content-key', autoKey)
+      // Bubble handler will activate the edit — but stopImmediatePropagation()
+      // prevents it, so activate directly here
+      if (!currentEditor) activateEdit(anchor)
+    }
+  }, true)  // capture phase
+
+  // ── Bubble-phase listener: activate edits on non-anchor elements ──────────
   document.addEventListener('click', function (e) {
     // Suppress the click that fires immediately after a completed drag
     if (drag.happened) { drag.happened = false; return }
-
-    // Let Ctrl/Cmd+click pass through (open in new tab, etc.)
     if (e.ctrlKey || e.metaKey) return
 
-    console.log('[preview-bridge] click:', {
-      target: e.target.tagName,
-      closestA: e.target.closest('a') ? e.target.closest('a').textContent.trim() : null,
-      hasContentKey: !!e.target.closest('[data-content-key]'),
-      contentKeyEl: e.target.closest('[data-content-key]') ? e.target.closest('[data-content-key]').getAttribute('data-content-key') : null
-    })
-
-    // For any <a> ancestor: decide immediately whether to intercept or let navigate.
-    // We must call preventDefault() before the browser processes the navigation.
-    var anchor = e.target.closest('a')
-    if (anchor) {
-      // Explicit key on the anchor itself — always intercept
-      var anchorHasKey = anchor.hasAttribute('data-content-key')
-      // Auto-detect — check if the anchor's text is in contentMap
-      var anchorKey = anchorHasKey ? anchor.getAttribute('data-content-key') : resolveContentKey(anchor)
-      if (!anchorKey) return  // pure nav link — let browser navigate normally
-      // It's editable content — block navigation immediately
-      e.preventDefault()
-      e.stopPropagation()
-      if (currentEditor) return
-      if (!anchorHasKey) anchor.setAttribute('data-content-key', anchorKey)
-      activateEdit(anchor)
-      return
-    }
+    // Anchors are handled entirely by the capture listener above
+    if (e.target.closest('a')) return
 
     var el = e.target.closest('[data-content-key]')
     var key = null
 
     if (el) {
-      // Explicit key — existing path
       key = el.getAttribute('data-content-key')
     } else {
-      // Auto-detect for non-anchor elements
       el = findEditableEl(e.target)
       if (el) {
         key = resolveContentKey(el)
         if (key) {
-          // Tag the element permanently so future preview-content-changed syncs work
           el.setAttribute('data-content-key', key)
         } else {
           el = null
