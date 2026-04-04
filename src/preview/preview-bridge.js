@@ -40,6 +40,42 @@
     '  line-height: 1;',
     '  user-select: none;',
     '}',
+    '[data-reorderable] {',
+    '  position: relative;',
+    '}',
+    '.__reorder-arrows {',
+    '  position: absolute;',
+    '  top: 4px;',
+    '  left: 4px;',
+    '  display: flex;',
+    '  flex-direction: column;',
+    '  gap: 2px;',
+    '  z-index: 9998;',
+    '  pointer-events: all;',
+    '}',
+    '.__reorder-btn {',
+    '  width: 20px;',
+    '  height: 20px;',
+    '  background: rgba(0,0,0,0.55);',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 4px;',
+    '  font-size: 11px;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  cursor: pointer;',
+    '  line-height: 1;',
+    '  user-select: none;',
+    '  padding: 0;',
+    '}',
+    '.__reorder-btn:hover:not(:disabled) {',
+    '  background: rgba(0,0,0,0.8);',
+    '}',
+    '.__reorder-btn:disabled {',
+    '  opacity: 0.25;',
+    '  cursor: default;',
+    '}',
   ].join('\n')
   document.head.appendChild(style)
 
@@ -69,9 +105,59 @@
     })
   })
 
+  // ── Reorder Arrows ─────────────────────────────────────────────────────────
+
+  function injectReorderArrows(el) {
+    if (el.querySelector('.__reorder-arrows')) return
+
+    var arrayPath = el.getAttribute('data-reorderable')
+    var index = parseInt(el.getAttribute('data-reorder-index'), 10)
+
+    var arr = window.__PREVIEW_CONTENT__ ? getNestedValue(window.__PREVIEW_CONTENT__, arrayPath) : null
+    var length = Array.isArray(arr) ? arr.length : 0
+
+    var container = document.createElement('div')
+    container.className = '__reorder-arrows'
+
+    var upBtn = document.createElement('button')
+    upBtn.className = '__reorder-btn'
+    upBtn.textContent = '↑'
+    upBtn.disabled = index === 0
+    upBtn.addEventListener('click', function (e) {
+      e.stopPropagation()
+      e.preventDefault()
+      window.parent.postMessage(
+        { type: 'preview-reorder', arrayPath: arrayPath, fromIndex: index, toIndex: index - 1 },
+        '*'
+      )
+    })
+
+    var downBtn = document.createElement('button')
+    downBtn.className = '__reorder-btn'
+    downBtn.textContent = '↓'
+    downBtn.disabled = index >= length - 1
+    downBtn.addEventListener('click', function (e) {
+      e.stopPropagation()
+      e.preventDefault()
+      window.parent.postMessage(
+        { type: 'preview-reorder', arrayPath: arrayPath, fromIndex: index, toIndex: index + 1 },
+        '*'
+      )
+    })
+
+    container.appendChild(upBtn)
+    container.appendChild(downBtn)
+    el.appendChild(container)
+  }
+
   // ── Hover Highlighting (event delegation) ──────────────────────────────────
 
   document.addEventListener('mouseover', function (e) {
+    // Reorder arrows
+    var reorderEl = e.target.closest('[data-reorderable]')
+    if (reorderEl) injectReorderArrows(reorderEl)
+
+    // Text edit pencil
     var el = e.target.closest('[data-content-key]')
     if (!el) return
     if (currentEditor && currentEditor.element === el) return
@@ -84,9 +170,16 @@
   })
 
   document.addEventListener('mouseout', function (e) {
+    // Reorder arrows
+    var reorderEl = e.target.closest('[data-reorderable]')
+    if (reorderEl && !(e.relatedTarget && reorderEl.contains(e.relatedTarget))) {
+      var arrows = reorderEl.querySelector('.__reorder-arrows')
+      if (arrows) arrows.remove()
+    }
+
+    // Text edit pencil
     var el = e.target.closest('[data-content-key]')
     if (!el) return
-    // Don't remove if mouse is still inside the element (e.g., moved to pencil child)
     if (e.relatedTarget && el.contains(e.relatedTarget)) return
     var pencil = el.querySelector('.__preview-pencil')
     if (pencil) pencil.remove()
@@ -95,6 +188,9 @@
   // ── Inline Edit (event delegation) ────────────────────────────────────────
 
   document.addEventListener('click', function (e) {
+    // Ignore clicks that originated from reorder buttons
+    if (e.target.closest('.__reorder-arrows')) return
+
     var el = e.target.closest('[data-content-key]')
     if (!el) return
     if (currentEditor) return // already editing something

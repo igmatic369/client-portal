@@ -34,6 +34,17 @@ function setNestedValue(obj, dotPath, value) {
   return result
 }
 
+// Immutably move an item within a nested array at dot-path
+function reorderArray(obj, arrayPath, fromIndex, toIndex) {
+  const result = JSON.parse(JSON.stringify(obj))
+  const keys = arrayPath.split('.')
+  let arr = result
+  for (const k of keys) arr = arr[k]
+  const [item] = arr.splice(fromIndex, 1)
+  arr.splice(toIndex, 0, item)
+  return result
+}
+
 export default function Editor() {
   const { siteId } = useParams()
   const navigate = useNavigate()
@@ -139,6 +150,20 @@ export default function Editor() {
       if (event.data.type === 'preview-field-change') {
         const { key, value } = event.data
         const newContent = setNestedValue(latestContent.current, key, value)
+        latestContent.current = newContent
+        setContent(newContent)
+        setSaveStatus('dirty')
+        sendContentToIframe(newContent)
+
+        clearTimeout(debounceTimer.current)
+        debounceTimer.current = setTimeout(() => {
+          save(latestContent.current)
+        }, AUTOSAVE_DELAY)
+      }
+
+      if (event.data.type === 'preview-reorder') {
+        const { arrayPath, fromIndex, toIndex } = event.data
+        const newContent = reorderArray(latestContent.current, arrayPath, fromIndex, toIndex)
         latestContent.current = newContent
         setContent(newContent)
         setSaveStatus('dirty')
