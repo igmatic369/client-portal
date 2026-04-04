@@ -76,6 +76,7 @@
   // ── State ──────────────────────────────────────────────────────────────────
 
   var currentEditor = null  // { element, key, rawValue, input }
+  var pendingContentChanged = false
 
   var drag = {
     pending: false,
@@ -133,6 +134,12 @@
     window.__PREVIEW_CONTENT__ = event.data.content
     contentMap = Object.create(null)
     buildContentMap(window.__PREVIEW_CONTENT__, '')
+    // Don't fire preview-content-changed while an inline edit is active — it would
+    // trigger a React re-render that orphans the active input. Queue it instead.
+    if (currentEditor) {
+      pendingContentChanged = true
+      return
+    }
     window.dispatchEvent(new CustomEvent('preview-content-changed'))
   })
 
@@ -276,6 +283,29 @@
 
   var SKIP_TAGS = { INPUT: 1, TEXTAREA: 1, BUTTON: 1, SCRIPT: 1, STYLE: 1, SELECT: 1, A: 1 }
 
+  // Resolves a contentMap key for an element using three strategies:
+  //   1. Direct child text nodes only (fastest, most precise)
+  //   2. Full normalized textContent (catches pure-leaf elements)
+  //   3. Emoji/punctuation-stripped textContent (catches "📍 Kelowna" etc.)
+  function resolveContentKey(el) {
+    if (!el || SKIP_TAGS[el.tagName]) return null
+    var candidates = []
+
+    var direct = getDirectText(el)
+    if (direct.length >= 2) candidates.push(direct)
+
+    var full = el.textContent.replace(/\s+/g, ' ').trim()
+    if (full.length >= 2 && full !== direct) candidates.push(full)
+
+    var stripped = full.replace(/^[^\w$"'(]+/, '').trim()
+    if (stripped.length >= 2 && stripped !== full && stripped !== direct) candidates.push(stripped)
+
+    for (var i = 0; i < candidates.length; i++) {
+      if (contentMap[candidates[i]] !== undefined) return contentMap[candidates[i]]
+    }
+    return null
+  }
+
   // ── Hover Highlighting (event delegation) ──────────────────────────────────
 
   document.addEventListener('mouseover', function (e) {
@@ -304,17 +334,7 @@
 
     // Pencil for auto-detected text elements (check target only — no walk-up for perf)
     if (!el && !SKIP_TAGS[e.target.tagName]) {
-      var directText = getDirectText(e.target)
-      // Fallback for pure-leaf elements (only text nodes, no element children)
-      if (!directText) {
-        var hasElChild = false
-        for (var j = 0; j < e.target.childNodes.length; j++) {
-          if (e.target.childNodes[j].nodeType === 1) { hasElChild = true; break }
-        }
-        if (!hasElChild) directText = e.target.textContent.trim()
-      }
-      if (directText.length >= 2 && contentMap[directText] !== undefined
-          && !e.target.querySelector('.__preview-pencil')) {
+      if (resolveContentKey(e.target) !== null && !e.target.querySelector('.__preview-pencil')) {
         var autoP = document.createElement('span')
         autoP.className = '__preview-pencil'
         autoP.textContent = '\u270F'
@@ -387,25 +407,13 @@
 
   // ── Inline Edit (event delegation) ────────────────────────────────────────
 
-  // Walk up from target to find an element whose direct text is in contentMap
+  // Walk up from target to find an element whose text resolves to a contentMap key
   function findEditableEl(target) {
     var el = target
     for (var depth = 0; depth < 4; depth++) {
       if (!el || el === document.body) return null
       if (SKIP_TAGS[el.tagName]) return null
-
-      var text = getDirectText(el)
-      // Also use full textContent for pure-leaf elements (no element children)
-      if (!text) {
-        var hasElChild = false
-        for (var i = 0; i < el.childNodes.length; i++) {
-          if (el.childNodes[i].nodeType === 1) { hasElChild = true; break }
-        }
-        if (!hasElChild) text = el.textContent.trim()
-      }
-
-      if (text.length >= 2 && contentMap[text] !== undefined) return el
-
+      if (resolveContentKey(el) !== null) return el
       el = el.parentElement
     }
     return null
@@ -425,15 +433,7 @@
       // Auto-detect: search contentMap for a matching text value
       el = findEditableEl(e.target)
       if (el) {
-        var text = getDirectText(el)
-        if (!text) {
-          var hasElChild = false
-          for (var i = 0; i < el.childNodes.length; i++) {
-            if (el.childNodes[i].nodeType === 1) { hasElChild = true; break }
-          }
-          if (!hasElChild) text = el.textContent.trim()
-        }
-        key = contentMap[text]
+        key = resolveContentKey(el)
         if (key) {
           // Tag the element permanently so future preview-content-changed syncs work
           el.setAttribute('data-content-key', key)
@@ -512,6 +512,11 @@
       if (revert) {
         saved.element.textContent = saved.rawValue
         window.parent.postMessage({ type: 'preview-field-change', key: saved.key, value: saved.rawValue }, '*')
+      }
+      // Flush any queued content-changed event now that the editor is closed
+      if (pendingContentChanged) {
+        pendingContentChanged = false
+        window.dispatchEvent(new CustomEvent('preview-content-changed'))
       }
     }
 
