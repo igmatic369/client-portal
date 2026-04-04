@@ -4,25 +4,8 @@ import { supabase } from '../lib/supabase'
 import SchemaForm from '../components/editor/SchemaForm'
 import testContent from '../test-data/opp-content.json'
 
-const AUTOSAVE_DELAY = 2000
 const PUBLISH_SUCCESS_DISMISS = 10000
 const PUBLISH_DONE_LABEL_DURATION = 2500
-
-const statusStyle = {
-  idle:   { color: '#a8a29e' },
-  dirty:  { color: '#a8a29e' },
-  saving: { color: '#78716c' },
-  saved:  { color: '#16a34a' },
-  error:  { color: '#ef4444' },
-}
-
-const statusText = {
-  idle:   '',
-  dirty:  'Unsaved changes',
-  saving: 'Saving…',
-  saved:  'Draft saved ✓',
-  error:  'Save failed',
-}
 
 // Immutably set a value at a dot-path in a nested object
 function setNestedValue(obj, dotPath, value) {
@@ -54,16 +37,28 @@ export default function Editor() {
   const [content, setContent]     = useState(null)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
-  const [saveStatus, setSaveStatus] = useState('idle')
   const [viewMode, setViewMode]   = useState('preview') // 'preview' | 'form'
 
+  // Save state
+  const [dirty, setDirty]         = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'error'
+
+  // Draft history (max 3 entries, newest first)
+  const [draftHistory, setDraftHistory] = useState([])
+
+  // Publish state
   const [publishing, setPublishing]     = useState(false)
   const [publishDone, setPublishDone]   = useState(false)
   const [banner, setBanner]             = useState(null)
 
-  const debounceTimer    = useRef(null)
+  // Reset dropdown
+  const [resetOpen, setResetOpen]       = useState(false)
+  const [resetting, setResetting]       = useState(false)
+  const resetRef                        = useRef(null)
+
   const bannerTimer      = useRef(null)
   const publishDoneTimer = useRef(null)
+  const savedTimer       = useRef(null)
   const latestContent    = useRef(null)
   const iframeRef        = useRef(null)
   const iframeReadyRef   = useRef(false)
@@ -117,7 +112,6 @@ export default function Editor() {
         setContent(initialContent)
         latestContent.current = initialContent
         setLoading(false)
-        // If site has no netlify_url, default to form view
         if (!siteRow.netlify_url) setViewMode('form')
       }
     }
@@ -125,6 +119,18 @@ export default function Editor() {
     load()
     return () => { cancelled = true }
   }, [siteId])
+
+  // ── Close reset dropdown on outside click ───────────────────────────────────
+  useEffect(() => {
+    if (!resetOpen) return
+    function handleOutside(e) {
+      if (resetRef.current && !resetRef.current.contains(e.target)) {
+        setResetOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [resetOpen])
 
   // ── Send content to iframe ──────────────────────────────────────────────────
   function sendContentToIframe(contentObj) {
@@ -152,13 +158,8 @@ export default function Editor() {
         const newContent = setNestedValue(latestContent.current, key, value)
         latestContent.current = newContent
         setContent(newContent)
-        setSaveStatus('dirty')
+        setDirty(true)
         sendContentToIframe(newContent)
-
-        clearTimeout(debounceTimer.current)
-        debounceTimer.current = setTimeout(() => {
-          save(latestContent.current)
-        }, AUTOSAVE_DELAY)
       }
 
       if (event.data.type === 'preview-reorder') {
@@ -166,13 +167,8 @@ export default function Editor() {
         const newContent = reorderArray(latestContent.current, arrayPath, fromIndex, toIndex)
         latestContent.current = newContent
         setContent(newContent)
-        setSaveStatus('dirty')
+        setDirty(true)
         sendContentToIframe(newContent)
-
-        clearTimeout(debounceTimer.current)
-        debounceTimer.current = setTimeout(() => {
-          save(latestContent.current)
-        }, AUTOSAVE_DELAY)
       }
     }
 
@@ -180,7 +176,7 @@ export default function Editor() {
     return () => window.removeEventListener('message', handleMessage)
   }, []) // uses refs — safe with empty deps
 
-  // ── Auto-save ───────────────────────────────────────────────────────────────
+  // ── Save draft ──────────────────────────────────────────────────────────────
   const save = async (contentToSave) => {
     setSaveStatus('saving')
     const { error: saveErr } = await supabase
@@ -194,26 +190,71 @@ export default function Editor() {
       setSaveStatus('error')
     } else {
       setSaveStatus('saved')
-      setTimeout(() => setSaveStatus((s) => s === 'saved' ? 'idle' : s), 3000)
+      setDirty(false)
+      clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaveStatus('idle'), 3000)
     }
+  }
+
+  const handleSaveDraft = () => {
+    if (!dirty || saveStatus === 'saving') return
+    // Push current content to draft history before saving new version
+    setDraftHistory((prev) => [latestContent.current, ...prev].slice(0, 3))
+    save(latestContent.current)
   }
 
   const handleChange = (newContent) => {
     setContent(newContent)
     latestContent.current = newContent
-    setSaveStatus('dirty')
+    setDirty(true)
     sendContentToIframe(newContent)
+  }
 
-    clearTimeout(debounceTimer.current)
-    debounceTimer.current = setTimeout(() => {
-      save(latestContent.current)
-    }, AUTOSAVE_DELAY)
+  // ── Reset ───────────────────────────────────────────────────────────────────
+  const handleReset = async (type) => {
+    setResetOpen(false)
+    setResetting(true)
+
+    let newContent = null
+
+    if (type === 'history-0' || type === 'history-1' || type === 'history-2') {
+      const idx = parseInt(type.split('-')[1], 10)
+      newContent = draftHistory[idx] ?? null
+    } else if (type === 'last-save') {
+      const { data } = await supabase
+        .from('content_drafts')
+        .select('content_json')
+        .eq('site_id', siteId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      newContent = data?.content_json ?? null
+    } else if (type === 'original') {
+      const { data, error: fnErr } = await supabase.functions.invoke('fetch-content', {
+        body: { site_id: siteId },
+      })
+      if (!fnErr && data?.content_json) newContent = data.content_json
+    }
+
+    setResetting(false)
+
+    if (!newContent) {
+      setBanner({ type: 'error', message: 'Could not load that version.' })
+      clearTimeout(bannerTimer.current)
+      bannerTimer.current = setTimeout(() => setBanner(null), 4000)
+      return
+    }
+
+    latestContent.current = newContent
+    setContent(newContent)
+    setDirty(true)
+    sendContentToIframe(newContent)
   }
 
   // ── Publish ─────────────────────────────────────────────────────────────────
   const handlePublish = async () => {
-    clearTimeout(debounceTimer.current)
-    if (saveStatus === 'dirty') {
+    if (dirty) {
+      setDraftHistory((prev) => [latestContent.current, ...prev].slice(0, 3))
       await save(latestContent.current)
     }
 
@@ -234,7 +275,6 @@ export default function Editor() {
         type: 'success',
         message: 'Changes published! Your site will update in about 2 minutes.',
       })
-      setSaveStatus('idle')
       bannerTimer.current = setTimeout(() => setBanner(null), PUBLISH_SUCCESS_DISMISS)
       setPublishDone(true)
       publishDoneTimer.current = setTimeout(() => setPublishDone(false), PUBLISH_DONE_LABEL_DURATION)
@@ -244,20 +284,27 @@ export default function Editor() {
   // ── Cleanup ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
-      clearTimeout(debounceTimer.current)
       clearTimeout(bannerTimer.current)
       clearTimeout(publishDoneTimer.current)
+      clearTimeout(savedTimer.current)
     }
   }, [])
 
   // ── Derived state ───────────────────────────────────────────────────────────
   const publishDisabled = publishing || saveStatus === 'saving'
+  const saveDraftDisabled = !dirty || saveStatus === 'saving'
 
   const publishLabel = publishing
     ? 'Publishing…'
     : publishDone
       ? 'Published ✓'
       : 'Publish'
+
+  const saveDraftLabel = saveStatus === 'saving'
+    ? 'Saving…'
+    : saveStatus === 'saved'
+      ? 'Saved ✓'
+      : 'Save Draft'
 
   const publishBtnStyle = {
     padding: '7px 16px',
@@ -272,6 +319,44 @@ export default function Editor() {
       : publishDone
         ? { background: '#16a34a', color: '#fff' }
         : { background: '#ea580c', color: '#fff' }),
+  }
+
+  const saveDraftBtnStyle = {
+    padding: '7px 14px',
+    borderRadius: '7px',
+    border: '1px solid #e7e5e4',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: saveDraftDisabled ? 'not-allowed' : 'pointer',
+    transition: 'background 0.2s, color 0.2s',
+    ...(saveStatus === 'saved'
+      ? { background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }
+      : saveStatus === 'error'
+        ? { background: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' }
+        : saveDraftDisabled
+          ? { background: '#fafaf9', color: '#d4d0cc' }
+          : { background: '#fff', color: '#44403c' }),
+  }
+
+  const resetBtnStyle = {
+    padding: '7px 12px',
+    borderRadius: '7px',
+    border: '1px solid #e7e5e4',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: resetting ? 'not-allowed' : 'pointer',
+    background: resetOpen ? '#f5f5f4' : '#fff',
+    color: resetting ? '#a8a29e' : '#44403c',
+    transition: 'background 0.15s',
+  }
+
+  const dirtyIndicatorStyle = {
+    fontSize: '11px',
+    color: dirty ? '#ea580c' : 'transparent',
+    padding: '0 4px',
+    minWidth: '90px',
+    textAlign: 'center',
+    userSelect: 'none',
   }
 
   const previewUrl = site?.netlify_url ? `${site.netlify_url}?preview=true` : null
@@ -317,7 +402,7 @@ export default function Editor() {
         alignItems: 'center',
         padding: '0 16px',
         gap: '4px',
-        maxWidth: '720px',
+        maxWidth: '860px',
         width: 'max-content',
         whiteSpace: 'nowrap',
       }}>
@@ -340,9 +425,9 @@ export default function Editor() {
 
         <Divider />
 
-        {/* Save status */}
-        <span style={{ fontSize: '12px', padding: '0 4px', minWidth: '100px', textAlign: 'center', ...statusStyle[saveStatus] }}>
-          {statusText[saveStatus]}
+        {/* Dirty indicator */}
+        <span style={dirtyIndicatorStyle}>
+          {dirty ? 'Unsaved changes' : ''}
         </span>
 
         <Divider />
@@ -368,6 +453,82 @@ export default function Editor() {
         ) : (
           <span style={{ fontSize: '12px', color: '#a8a29e', padding: '0 4px' }}>No preview URL</span>
         )}
+
+        <Divider />
+
+        {/* Save Draft */}
+        <button
+          type="button"
+          disabled={saveDraftDisabled}
+          onClick={handleSaveDraft}
+          style={saveDraftBtnStyle}
+        >
+          {saveDraftLabel}
+        </button>
+
+        {/* Reset dropdown */}
+        <div ref={resetRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            disabled={resetting}
+            onClick={() => setResetOpen((o) => !o)}
+            style={resetBtnStyle}
+            title="Reset to a previous version"
+          >
+            {resetting ? 'Loading…' : 'Reset ▾'}
+          </button>
+
+          {resetOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              right: 0,
+              background: '#fff',
+              border: '1px solid #e7e5e4',
+              borderRadius: '10px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              minWidth: '200px',
+              overflow: 'hidden',
+              zIndex: 10001,
+            }}>
+              {draftHistory.length > 0 && (
+                <ResetItem
+                  label="Reset to last save"
+                  sub="Your most recent saved draft"
+                  onClick={() => handleReset('last-save')}
+                />
+              )}
+              {draftHistory.length >= 1 && (
+                <ResetItem
+                  label="Reset to 2nd last save"
+                  sub="Before the previous save"
+                  onClick={() => handleReset('history-0')}
+                />
+              )}
+              {draftHistory.length >= 2 && (
+                <ResetItem
+                  label="Reset to 3rd last save"
+                  sub="Two saves ago"
+                  onClick={() => handleReset('history-1')}
+                />
+              )}
+              {draftHistory.length === 0 && (
+                <ResetItem
+                  label="Reset to last save"
+                  sub="Reload current saved draft"
+                  onClick={() => handleReset('last-save')}
+                />
+              )}
+              <div style={{ height: '1px', background: '#f0efee', margin: '2px 0' }} />
+              <ResetItem
+                label="Reset to original"
+                sub="Content from GitHub (pre-edits)"
+                onClick={() => handleReset('original')}
+                danger
+              />
+            </div>
+          )}
+        </div>
 
         <Divider />
 
@@ -471,4 +632,28 @@ export default function Editor() {
 
 function Divider() {
   return <div style={{ width: '1px', height: '20px', background: '#e7e5e4', margin: '0 6px', flexShrink: 0 }} />
+}
+
+function ResetItem({ label, sub, onClick, danger }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'block',
+        width: '100%',
+        textAlign: 'left',
+        padding: '10px 14px',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        transition: 'background 0.1s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = danger ? '#fef2f2' : '#f5f5f4' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
+    >
+      <div style={{ fontSize: '13px', fontWeight: 500, color: danger ? '#dc2626' : '#1c1917' }}>{label}</div>
+      <div style={{ fontSize: '11px', color: '#a8a29e', marginTop: '1px' }}>{sub}</div>
+    </button>
+  )
 }

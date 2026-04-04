@@ -428,6 +428,31 @@
     // Let Ctrl/Cmd+click pass through (open in new tab, etc.)
     if (e.ctrlKey || e.metaKey) return
 
+    console.log('[preview-bridge] click:', {
+      target: e.target.tagName,
+      closestA: e.target.closest('a') ? e.target.closest('a').textContent.trim() : null,
+      hasContentKey: !!e.target.closest('[data-content-key]'),
+      contentKeyEl: e.target.closest('[data-content-key]') ? e.target.closest('[data-content-key]').getAttribute('data-content-key') : null
+    })
+
+    // For any <a> ancestor: decide immediately whether to intercept or let navigate.
+    // We must call preventDefault() before the browser processes the navigation.
+    var anchor = e.target.closest('a')
+    if (anchor) {
+      // Explicit key on the anchor itself — always intercept
+      var anchorHasKey = anchor.hasAttribute('data-content-key')
+      // Auto-detect — check if the anchor's text is in contentMap
+      var anchorKey = anchorHasKey ? anchor.getAttribute('data-content-key') : resolveContentKey(anchor)
+      if (!anchorKey) return  // pure nav link — let browser navigate normally
+      // It's editable content — block navigation immediately
+      e.preventDefault()
+      e.stopPropagation()
+      if (currentEditor) return
+      if (!anchorHasKey) anchor.setAttribute('data-content-key', anchorKey)
+      activateEdit(anchor)
+      return
+    }
+
     var el = e.target.closest('[data-content-key]')
     var key = null
 
@@ -435,15 +460,7 @@
       // Explicit key — existing path
       key = el.getAttribute('data-content-key')
     } else {
-      // Auto-detect: search contentMap for a matching text value
-      // For <a> tags: walk up to find the anchor, check if its text is editable.
-      // If the anchor's text is NOT in contentMap it's a nav link — let it navigate.
-      var anchor = e.target.closest('a')
-      if (anchor && !anchor.hasAttribute('data-content-key')) {
-        var anchorKey = resolveContentKey(anchor)
-        if (!anchorKey) return  // pure nav link — don't intercept
-      }
-
+      // Auto-detect for non-anchor elements
       el = findEditableEl(e.target)
       if (el) {
         key = resolveContentKey(el)
@@ -518,11 +535,16 @@
       if (!currentEditor) return
       var saved = currentEditor
       currentEditor = null
+      console.log('[preview-bridge] finish:', {
+        revert: revert,
+        inputValue: saved.input.value,
+        trimmed: saved.input.value.trim(),
+        isEmpty: saved.input.value.trim() === ''
+      })
       if (!revert) {
-        // Prevent empty values from removing the element's text entirely —
-        // a zero-length textContent makes the element invisible and unclickable.
-        // Use a single space so the element stays in the DOM and remains editable.
-        var finalValue = saved.input.value.trim() === '' ? ' ' : saved.input.value
+        // Prevent empty values from making the element invisible and unclickable.
+        // Use a non-breaking space (\u00A0) — a regular space may be collapsed by HTML.
+        var finalValue = saved.input.value.trim() === '' ? '\u00A0' : saved.input.value
         saved.element.textContent = finalValue
         if (finalValue !== saved.input.value) {
           window.parent.postMessage({ type: 'preview-field-change', key: saved.key, value: finalValue }, '*')
