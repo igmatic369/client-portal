@@ -153,33 +153,91 @@
     activeBadgePopup = null
   }
 
-  function openBadgePopup(pkgEl) {
+  function openBadgePopup(reorderEl) {
     closeBadgePopup()
-    var idx = parseInt(pkgEl.getAttribute('data-reorder-index'), 10)
+    var arrayPath = reorderEl.getAttribute('data-reorderable')
+    var idx = parseInt(reorderEl.getAttribute('data-reorder-index'), 10)
     var popup = document.createElement('div')
     popup.className = '__badge-popup'
 
-    var options = [
-      { label: '\u2B50 Most Popular', highlight: true,  badge: 'Most Popular' },
-      { label: '\uD83D\uDCB0 Best Value',   highlight: false, badge: 'Best Value'   },
-      { label: '\u2715 No Badge',      highlight: false, badge: null            },
-    ]
-
-    options.forEach(function (opt) {
-      var btn = document.createElement('button')
-      btn.className = '__badge-option'
-      btn.textContent = opt.label
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation()
-        window.parent.postMessage({ type: 'preview-field-change', key: 'packages.' + idx + '.highlight', value: opt.highlight }, '*')
-        window.parent.postMessage({ type: 'preview-field-change', key: 'packages.' + idx + '.badge',     value: opt.badge     }, '*')
-        closeBadgePopup()
+    if (arrayPath === 'packages') {
+      var pkgOptions = [
+        { label: '\u2B50 Most Popular', highlight: true,  badge: 'Most Popular' },
+        { label: '\uD83D\uDCB0 Best Value',   highlight: false, badge: 'Best Value'   },
+        { label: '\u2715 No Badge',      highlight: false, badge: null            },
+      ]
+      pkgOptions.forEach(function (opt) {
+        var btn = document.createElement('button')
+        btn.className = '__badge-option'
+        btn.textContent = opt.label
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation()
+          window.parent.postMessage({ type: 'preview-field-change', key: 'packages.' + idx + '.highlight', value: opt.highlight }, '*')
+          window.parent.postMessage({ type: 'preview-field-change', key: 'packages.' + idx + '.badge',     value: opt.badge     }, '*')
+          closeBadgePopup()
+        })
+        popup.appendChild(btn)
       })
-      popup.appendChild(btn)
-    })
+    } else {
+      // Addon tag options
+      var tagOptions = [
+        'Any Package',
+        'Add-On for Package #1 Only',
+        'Add-On for Package #2 Only',
+        'Add-On for Package #3 Only',
+        'Add-On for Package #4 Only',
+        'Add-On for Package #5 Only',
+      ]
+      tagOptions.forEach(function (tag) {
+        var btn = document.createElement('button')
+        btn.className = '__badge-option'
+        btn.textContent = tag
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation()
+          window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.tag', value: tag }, '*')
+          closeBadgePopup()
+        })
+        popup.appendChild(btn)
+      })
 
-    pkgEl.appendChild(popup)
-    activeBadgePopup = { pkgEl: pkgEl, popup: popup }
+      // Custom option — replaces popup with an inline input
+      var customBtn = document.createElement('button')
+      customBtn.className = '__badge-option'
+      customBtn.textContent = '\u270F\uFE0F Custom\u2026'
+      customBtn.addEventListener('click', function (e) {
+        e.stopPropagation()
+        // Get current tag value from live content
+        var currentTag = ''
+        if (window.__PREVIEW_CONTENT__) {
+          var a = window.__PREVIEW_CONTENT__.addons
+          if (a && a[idx]) currentTag = a[idx].tag || ''
+        }
+        // Replace popup contents with a text input
+        popup.innerHTML = ''
+        var input = document.createElement('input')
+        input.type = 'text'
+        input.value = currentTag
+        input.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 8px;font-size:12px;font-family:sans-serif;border:1px solid #d1d5db;border-radius:4px;outline:none;'
+        input.addEventListener('focus', function () { input.style.borderColor = '#3b82f6' })
+        input.addEventListener('blur', function () { input.style.borderColor = '#d1d5db' })
+        function commitCustom() {
+          var val = input.value.trim()
+          if (val) window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.tag', value: val }, '*')
+          closeBadgePopup()
+        }
+        input.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') { ev.preventDefault(); commitCustom() }
+          if (ev.key === 'Escape') closeBadgePopup()
+        })
+        input.addEventListener('blur', commitCustom)
+        popup.appendChild(input)
+        setTimeout(function () { input.focus(); input.select() }, 0)
+      })
+      popup.appendChild(customBtn)
+    }
+
+    reorderEl.appendChild(popup)
+    activeBadgePopup = { pkgEl: reorderEl, popup: popup }
   }
 
   // ── Content Map (for auto-detection) ──────────────────────────────────────
@@ -470,9 +528,9 @@
       reorderEl.appendChild(handle)
     }
 
-    // Badge toggle button for package cards only
-    var pkgEl = e.target.closest('[data-reorderable="packages"]')
-    if (pkgEl && !pkgEl.querySelector('.__badge-btn')) {
+    // Badge toggle button for package and addon cards
+    var reorderEl = e.target.closest('[data-reorderable="packages"], [data-reorderable="addons"]')
+    if (reorderEl && !reorderEl.querySelector('.__badge-btn')) {
       var badgeBtn = document.createElement('button')
       badgeBtn.className = '__badge-btn'
       badgeBtn.textContent = '\uD83C\uDFF7\uFE0F'  // 🏷️
@@ -480,9 +538,9 @@
       badgeBtn.addEventListener('click', function (ev) {
         ev.stopImmediatePropagation()
         ev.preventDefault()
-        openBadgePopup(pkgEl)
+        openBadgePopup(reorderEl)
       })
-      pkgEl.appendChild(badgeBtn)
+      reorderEl.appendChild(badgeBtn)
     }
 
     // Pencil for explicit data-content-key elements
@@ -518,12 +576,12 @@
       if (handle) handle.remove()
     }
 
-    // Remove badge button and close popup when cursor leaves a package card
-    var pkgEl = e.target.closest('[data-reorderable="packages"]')
-    if (pkgEl && !(e.relatedTarget && pkgEl.contains(e.relatedTarget))) {
-      var badgeBtn = pkgEl.querySelector('.__badge-btn')
+    // Remove badge button and close popup when cursor leaves a package/addon card
+    var badgeHost = e.target.closest('[data-reorderable="packages"], [data-reorderable="addons"]')
+    if (badgeHost && !(e.relatedTarget && badgeHost.contains(e.relatedTarget))) {
+      var badgeBtn = badgeHost.querySelector('.__badge-btn')
       if (badgeBtn) badgeBtn.remove()
-      if (activeBadgePopup && activeBadgePopup.pkgEl === pkgEl) closeBadgePopup()
+      if (activeBadgePopup && activeBadgePopup.pkgEl === badgeHost) closeBadgePopup()
     }
 
     // Remove pencil — covers both explicit [data-content-key] and auto-detected
