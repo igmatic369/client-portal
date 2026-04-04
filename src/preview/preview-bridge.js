@@ -194,7 +194,9 @@
         btn.textContent = tag
         btn.addEventListener('click', function (e) {
           e.stopPropagation()
-          window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.tag', value: tag }, '*')
+          var restricted = tag !== 'Any Package'
+          window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.tag',        value: tag        }, '*')
+          window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.restricted', value: restricted }, '*')
           closeBadgePopup()
         })
         popup.appendChild(btn)
@@ -222,7 +224,10 @@
         input.addEventListener('blur', function () { input.style.borderColor = '#d1d5db' })
         function commitCustom() {
           var val = input.value.trim()
-          if (val) window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.tag', value: val }, '*')
+          if (val) {
+            window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.tag',        value: val   }, '*')
+            window.parent.postMessage({ type: 'preview-field-change', key: 'addons.' + idx + '.restricted', value: false }, '*')
+          }
           closeBadgePopup()
         }
         input.addEventListener('keydown', function (ev) {
