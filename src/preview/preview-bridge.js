@@ -496,12 +496,18 @@
   // The click handler decides whether an <a> click should edit or navigate.
   var SKIP_TAGS = { INPUT: 1, TEXTAREA: 1, BUTTON: 1, SCRIPT: 1, STYLE: 1, SELECT: 1 }
 
+  // Keys managed by the 🏷️ badge toggle — skip inline text editing for these
+  var BADGE_KEY_RE = /^packages\.\d+\.badge$|^addons\.\d+\.tag$/
+
   // Resolves a contentMap key for an element using three strategies:
   //   1. Direct child text nodes only (fastest, most precise)
   //   2. Full normalized textContent (catches pure-leaf elements)
   //   3. Emoji/punctuation-stripped textContent (catches "📍 Kelowna" etc.)
   function resolveContentKey(el) {
     if (!el || SKIP_TAGS[el.tagName]) return null
+    // Explicit badge-managed key — skip to prevent inline editing
+    var explicitKey = el.getAttribute && el.getAttribute('data-content-key')
+    if (explicitKey && BADGE_KEY_RE.test(explicitKey)) return null
     var candidates = []
 
     var direct = getDirectText(el)
@@ -514,7 +520,8 @@
     if (stripped.length >= 2 && stripped !== full && stripped !== direct) candidates.push(stripped)
 
     for (var i = 0; i < candidates.length; i++) {
-      if (contentMap[candidates[i]] !== undefined) return contentMap[candidates[i]]
+      var k = contentMap[candidates[i]]
+      if (k !== undefined && !BADGE_KEY_RE.test(k)) return k
     }
     return null
   }
