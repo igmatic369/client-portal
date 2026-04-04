@@ -409,13 +409,36 @@
 
   // ── Inline Edit (event delegation) ────────────────────────────────────────
 
-  // Walk up from target to find an element whose text resolves to a contentMap key
+  // Walk up from target to find an element whose text resolves to a contentMap key.
+  // Container elements (those with element children) are only accepted when their
+  // direct text nodes alone provide the match — prevents tagging a <li> or <div>
+  // that matched on aggregated child text, which would wipe sibling elements on save.
   function findEditableEl(target) {
     var el = target
     for (var depth = 0; depth < 4; depth++) {
       if (!el || el === document.body) return null
       if (SKIP_TAGS[el.tagName]) return null
-      if (resolveContentKey(el) !== null) return el
+
+      var key = resolveContentKey(el)
+      if (key !== null) {
+        // Check for element children (excluding injected preview UI)
+        var hasElementChildren = false
+        for (var i = 0; i < el.childNodes.length; i++) {
+          var child = el.childNodes[i]
+          if (child.nodeType === 1 &&
+              !child.classList.contains('__preview-pencil') &&
+              !child.classList.contains('__drag-handle')) {
+            hasElementChildren = true
+            break
+          }
+        }
+        if (!hasElementChildren) return el  // leaf — always safe
+        // Has element children: only accept if direct text alone matched
+        var direct = getDirectText(el)
+        if (direct.length >= 2 && contentMap[direct] !== undefined) return el
+        // Matched via aggregated child text — skip, it's a container
+      }
+
       el = el.parentElement
     }
     return null
