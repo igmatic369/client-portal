@@ -70,6 +70,54 @@
     '  line-height: 1;',
     '  user-select: none;',
     '}',
+    '.__badge-btn {',
+    '  position: absolute;',
+    '  top: 4px;',
+    '  right: 4px;',
+    '  background: rgba(0,0,0,0.55);',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 4px;',
+    '  font-size: 13px;',
+    '  width: 22px;',
+    '  height: 22px;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  cursor: pointer;',
+    '  z-index: 9999;',
+    '  line-height: 1;',
+    '  user-select: none;',
+    '  padding: 0;',
+    '}',
+    '.__badge-popup {',
+    '  position: absolute;',
+    '  top: 30px;',
+    '  right: 4px;',
+    '  background: #fff;',
+    '  border: 1px solid #e5e7eb;',
+    '  border-radius: 8px;',
+    '  box-shadow: 0 4px 16px rgba(0,0,0,0.15);',
+    '  padding: 4px;',
+    '  z-index: 10002;',
+    '  min-width: 148px;',
+    '}',
+    '.__badge-option {',
+    '  display: block;',
+    '  width: 100%;',
+    '  text-align: left;',
+    '  padding: 6px 10px;',
+    '  font-size: 12px;',
+    '  font-family: sans-serif;',
+    '  background: none;',
+    '  border: none;',
+    '  cursor: pointer;',
+    '  border-radius: 4px;',
+    '  white-space: nowrap;',
+    '}',
+    '.__badge-option:hover {',
+    '  background: #f3f4f6;',
+    '}',
   ].join('\n')
   document.head.appendChild(style)
 
@@ -93,6 +141,45 @@
     indicator: null,
     toIndex: null,
     happened: false,
+  }
+
+  // ── Badge Toggle State ─────────────────────────────────────────────────────
+
+  var activeBadgePopup = null  // { pkgEl, popup }
+
+  function closeBadgePopup() {
+    if (!activeBadgePopup) return
+    activeBadgePopup.popup.remove()
+    activeBadgePopup = null
+  }
+
+  function openBadgePopup(pkgEl) {
+    closeBadgePopup()
+    var idx = parseInt(pkgEl.getAttribute('data-reorder-index'), 10)
+    var popup = document.createElement('div')
+    popup.className = '__badge-popup'
+
+    var options = [
+      { label: '\u2B50 Most Popular', highlight: true,  badge: 'Most Popular' },
+      { label: '\uD83D\uDCB0 Best Value',   highlight: false, badge: 'Best Value'   },
+      { label: '\u2715 No Badge',      highlight: false, badge: null            },
+    ]
+
+    options.forEach(function (opt) {
+      var btn = document.createElement('button')
+      btn.className = '__badge-option'
+      btn.textContent = opt.label
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation()
+        window.parent.postMessage({ type: 'preview-field-change', key: 'packages.' + idx + '.highlight', value: opt.highlight }, '*')
+        window.parent.postMessage({ type: 'preview-field-change', key: 'packages.' + idx + '.badge',     value: opt.badge     }, '*')
+        closeBadgePopup()
+      })
+      popup.appendChild(btn)
+    })
+
+    pkgEl.appendChild(popup)
+    activeBadgePopup = { pkgEl: pkgEl, popup: popup }
   }
 
   // ── Content Map (for auto-detection) ──────────────────────────────────────
@@ -212,39 +299,100 @@
       return
     }
 
-    siblings.sort(function (a, b) {
-      return a.getBoundingClientRect().top - b.getBoundingClientRect().top
+    // Build items with rects and centers
+    var items = siblings.map(function (el) {
+      var r = el.getBoundingClientRect()
+      return {
+        el: el,
+        index: parseInt(el.getAttribute('data-reorder-index'), 10),
+        top: r.top, left: r.left, right: r.right, bottom: r.bottom,
+        width: r.width, height: r.height,
+        cx: r.left + r.width / 2,
+        cy: r.top + r.height / 2,
+      }
     })
 
-    var visualIndex = siblings.length  // default: after last item
-    var indTop = null, indLeft = null, indWidth = null
+    // Sort by reading order: row first (top), then column (left)
+    items.sort(function (a, b) {
+      var dy = a.top - b.top
+      if (Math.abs(dy) > 10) return dy
+      return a.left - b.left
+    })
 
-    for (var i = 0; i < siblings.length; i++) {
-      var rect = siblings[i].getBoundingClientRect()
-      if (clientY < rect.top + rect.height / 2) {
-        // Cursor is in the upper half — drop before this sibling
-        visualIndex = parseInt(siblings[i].getAttribute('data-reorder-index'), 10)
-        indTop = rect.top - 2
-        indLeft = rect.left
-        indWidth = rect.width
-        break
-      } else {
-        // Cursor is in the lower half — drop after this sibling (so far)
-        visualIndex = parseInt(siblings[i].getAttribute('data-reorder-index'), 10) + 1
-        indTop = rect.bottom + 1
-        indLeft = rect.left
-        indWidth = rect.width
-      }
+    // Detect layout: grid if any two siblings share approximately the same row
+    var isVerticalList = true
+    for (var i = 1; i < items.length; i++) {
+      if (Math.abs(items[i].top - items[0].top) < 10) { isVerticalList = false; break }
     }
 
-    // Adjust for the removal of fromIndex shifting subsequent indices
-    drag.toIndex = visualIndex <= drag.fromIndex ? visualIndex : visualIndex - 1
+    // Find the item whose center is closest to the cursor
+    var closest = 0, closestDist = Infinity
+    for (var i = 0; i < items.length; i++) {
+      var dx = clientX - items[i].cx
+      var dy = clientY - items[i].cy
+      var dist = dx * dx + dy * dy
+      if (dist < closestDist) { closestDist = dist; closest = i }
+    }
 
-    if (indTop !== null) {
-      drag.indicator.style.display = 'block'
-      drag.indicator.style.top = indTop + 'px'
-      drag.indicator.style.left = indLeft + 'px'
-      drag.indicator.style.width = indWidth + 'px'
+    var item = items[closest]
+    // Grid: use X axis to pick left/right half; vertical list: use Y axis
+    var insertBefore = isVerticalList ? (clientY < item.cy) : (clientX < item.cx)
+
+    // Visual insertion position in sorted order
+    var visualPos = insertBefore ? closest : closest + 1
+
+    // Convert to data index, adjusting for the gap created by removing fromIndex
+    var rawIndex = visualPos >= items.length
+      ? items[items.length - 1].index + 1
+      : items[visualPos].index
+    drag.toIndex = rawIndex > drag.fromIndex ? rawIndex - 1 : rawIndex
+
+    // ── Draw indicator ─────────────────────────────────────────────────────
+    var ind = drag.indicator
+    ind.style.display = 'block'
+
+    if (isVerticalList) {
+      // Horizontal bar above or below the closest item
+      ind.style.top    = (insertBefore ? item.top - 2 : item.bottom + 1) + 'px'
+      ind.style.left   = item.left + 'px'
+      ind.style.width  = item.width + 'px'
+      ind.style.height = '3px'
+    } else {
+      // Vertical bar in the gap between cards
+      // Find the neighbor on the insertion side (must be on the same row)
+      var neighbor = insertBefore
+        ? (closest > 0 ? items[closest - 1] : null)
+        : (closest < items.length - 1 ? items[closest + 1] : null)
+
+      var ix, iy, ih
+      if (insertBefore && closest === 0) {
+        // Before the very first card
+        ix = item.left - 4
+        iy = item.top
+        ih = item.height
+      } else if (!insertBefore && closest === items.length - 1) {
+        // After the very last card
+        ix = item.right + 2
+        iy = item.top
+        ih = item.height
+      } else if (neighbor && Math.abs(neighbor.top - item.top) < 10) {
+        // Same row — split the gap between the two cards
+        var leftEl  = insertBefore ? neighbor : item
+        var rightEl = insertBefore ? item : neighbor
+        ix = (leftEl.right + rightEl.left) / 2 - 1.5
+        iy = Math.min(leftEl.top, rightEl.top)
+        ih = Math.max(leftEl.bottom, rightEl.bottom) - iy
+      } else {
+        // Neighbor is on a different row — bar at the edge of the current card
+        ix = insertBefore ? item.left - 4 : item.right + 2
+        iy = item.top
+        ih = item.height
+      }
+
+      ind.style.top    = iy + 'px'
+      ind.style.left   = ix + 'px'
+      ind.style.width  = '3px'
+      ind.style.height = ih + 'px'
     }
   }
 
@@ -322,6 +470,21 @@
       reorderEl.appendChild(handle)
     }
 
+    // Badge toggle button for package cards only
+    var pkgEl = e.target.closest('[data-reorderable="packages"]')
+    if (pkgEl && !pkgEl.querySelector('.__badge-btn')) {
+      var badgeBtn = document.createElement('button')
+      badgeBtn.className = '__badge-btn'
+      badgeBtn.textContent = '\uD83C\uDFF7\uFE0F'  // 🏷️
+      badgeBtn.title = 'Toggle badge'
+      badgeBtn.addEventListener('click', function (ev) {
+        ev.stopImmediatePropagation()
+        ev.preventDefault()
+        openBadgePopup(pkgEl)
+      })
+      pkgEl.appendChild(badgeBtn)
+    }
+
     // Pencil for explicit data-content-key elements
     var el = e.target.closest('[data-content-key]')
     if (el && !(currentEditor && currentEditor.element === el)) {
@@ -353,6 +516,14 @@
     if (reorderEl && !(e.relatedTarget && reorderEl.contains(e.relatedTarget))) {
       var handle = reorderEl.querySelector('.__drag-handle')
       if (handle) handle.remove()
+    }
+
+    // Remove badge button and close popup when cursor leaves a package card
+    var pkgEl = e.target.closest('[data-reorderable="packages"]')
+    if (pkgEl && !(e.relatedTarget && pkgEl.contains(e.relatedTarget))) {
+      var badgeBtn = pkgEl.querySelector('.__badge-btn')
+      if (badgeBtn) badgeBtn.remove()
+      if (activeBadgePopup && activeBadgePopup.pkgEl === pkgEl) closeBadgePopup()
     }
 
     // Remove pencil — covers both explicit [data-content-key] and auto-detected
@@ -471,6 +642,11 @@
     // Suppress the click that fires immediately after a completed drag
     if (drag.happened) { drag.happened = false; return }
     if (e.ctrlKey || e.metaKey) return
+
+    // Close badge popup on outside click
+    if (activeBadgePopup && !activeBadgePopup.popup.contains(e.target)) {
+      closeBadgePopup()
+    }
 
     // Anchors are handled entirely by the capture listener above
     if (e.target.closest('a')) return
