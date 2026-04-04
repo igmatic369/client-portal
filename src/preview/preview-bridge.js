@@ -281,7 +281,9 @@
 
   // ── Tags to skip for editing/hover ─────────────────────────────────────────
 
-  var SKIP_TAGS = { INPUT: 1, TEXTAREA: 1, BUTTON: 1, SCRIPT: 1, STYLE: 1, SELECT: 1, A: 1 }
+  // A tags are NOT skipped — editable link text (CTA buttons etc.) should be clickable.
+  // The click handler decides whether an <a> click should edit or navigate.
+  var SKIP_TAGS = { INPUT: 1, TEXTAREA: 1, BUTTON: 1, SCRIPT: 1, STYLE: 1, SELECT: 1 }
 
   // Resolves a contentMap key for an element using three strategies:
   //   1. Direct child text nodes only (fastest, most precise)
@@ -423,6 +425,9 @@
     // Suppress the click that fires immediately after a completed drag
     if (drag.happened) { drag.happened = false; return }
 
+    // Let Ctrl/Cmd+click pass through (open in new tab, etc.)
+    if (e.ctrlKey || e.metaKey) return
+
     var el = e.target.closest('[data-content-key]')
     var key = null
 
@@ -431,6 +436,14 @@
       key = el.getAttribute('data-content-key')
     } else {
       // Auto-detect: search contentMap for a matching text value
+      // For <a> tags: walk up to find the anchor, check if its text is editable.
+      // If the anchor's text is NOT in contentMap it's a nav link — let it navigate.
+      var anchor = e.target.closest('a')
+      if (anchor && !anchor.hasAttribute('data-content-key')) {
+        var anchorKey = resolveContentKey(anchor)
+        if (!anchorKey) return  // pure nav link — don't intercept
+      }
+
       el = findEditableEl(e.target)
       if (el) {
         key = resolveContentKey(el)
@@ -506,7 +519,14 @@
       var saved = currentEditor
       currentEditor = null
       if (!revert) {
-        saved.element.textContent = saved.input.value
+        // Prevent empty values from removing the element's text entirely —
+        // a zero-length textContent makes the element invisible and unclickable.
+        // Use a single space so the element stays in the DOM and remains editable.
+        var finalValue = saved.input.value.trim() === '' ? ' ' : saved.input.value
+        saved.element.textContent = finalValue
+        if (finalValue !== saved.input.value) {
+          window.parent.postMessage({ type: 'preview-field-change', key: saved.key, value: finalValue }, '*')
+        }
       }
       saved.input.replaceWith(saved.element)
       if (revert) {
