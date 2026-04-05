@@ -311,7 +311,8 @@
   }
 
   function showImageOverlay(img) {
-    if (activeImgOverlay && activeImgOverlay.overlay.parentElement === img.parentElement) return
+    var container = img.closest('.relative') || img.parentElement
+    if (activeImgOverlay && activeImgOverlay.container === container) return
     hideImageOverlay()
     var contentKey = img.getAttribute('data-content-key')
     if (!contentKey) return
@@ -338,8 +339,8 @@
 
     overlay.appendChild(replaceBtn)
     overlay.appendChild(removeBtn)
-    img.parentElement.appendChild(overlay)
-    activeImgOverlay = { container: img.parentElement, overlay: overlay }
+    container.appendChild(overlay)
+    activeImgOverlay = { container: container, overlay: overlay }
   }
 
   // ── Content Map (for auto-detection) ──────────────────────────────────────
@@ -642,10 +643,18 @@
       reorderEl.appendChild(handle)
     }
 
-    // Image overlay for tagged <img> elements
+    // Image overlay — find tagged <img> inside the hovered container.
+    // The gradient/overlay divs sit on top of the <img>, so e.target
+    // is rarely the <img> itself. Walk up to the nearest .relative
+    // ancestor and query for the img from there.
+    var imgEl = null
     if (e.target.tagName === 'IMG' && e.target.hasAttribute('data-content-key')) {
-      showImageOverlay(e.target)
+      imgEl = e.target
+    } else {
+      var imgContainer = e.target.closest('.relative')
+      if (imgContainer) imgEl = imgContainer.querySelector('img[data-content-key]')
     }
+    if (imgEl) showImageOverlay(imgEl)
 
     // Badge toggle button for package and addon cards
     var reorderEl = e.target.closest('[data-reorderable="packages"], [data-reorderable="addons"]')
@@ -833,8 +842,9 @@
 
     // Anchors are handled entirely by the capture listener above
     if (e.target.closest('a')) return
-    // Images are handled by the overlay buttons
+    // Images are handled by the overlay buttons — skip clicks inside active image containers
     if (e.target.tagName === 'IMG') return
+    if (activeImgOverlay && activeImgOverlay.container.contains(e.target)) return
 
     var el = e.target.closest('[data-content-key]')
     var key = null
