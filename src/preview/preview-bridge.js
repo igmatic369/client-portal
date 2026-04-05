@@ -51,7 +51,6 @@
     '}',
     '[data-reorderable] {',
     '  position: relative;',
-    '  overflow: visible !important;',
     '}',
     '.__drag-handle {',
     '  position: absolute;',
@@ -752,11 +751,13 @@
     // Drag handle + remove button for reorderable containers
     var reorderEl = e.target.closest('[data-reorderable]')
     if (reorderEl) {
+      console.log('[bridge] mouseover reorderable:', reorderEl.getAttribute('data-reorderable'), reorderEl.getAttribute('data-reorder-index'))
       if (!reorderEl.querySelector('.__drag-handle')) {
         var handle = document.createElement('span')
         handle.className = '__drag-handle'
         handle.textContent = '\u2807'  // ⠇ braille six-dot pattern (drag hint)
         reorderEl.appendChild(handle)
+        console.log('[bridge] injected drag-handle')
       }
       if (!reorderEl.querySelector('.__remove-btn')) {
         var removeBtn = document.createElement('button')
@@ -769,6 +770,7 @@
           openRemoveConfirm(reorderEl)
         })
         reorderEl.appendChild(removeBtn)
+        console.log('[bridge] injected remove-btn')
       }
     }
 
@@ -828,12 +830,16 @@
 
     // Remove drag handle + remove button when the cursor leaves the reorderable container
     var reorderEl = e.target.closest('[data-reorderable]')
-    if (reorderEl && !(e.relatedTarget && reorderEl.contains(e.relatedTarget))) {
-      var handle = reorderEl.querySelector('.__drag-handle')
-      if (handle) handle.remove()
-      var removeBtn = reorderEl.querySelector('.__remove-btn')
-      if (removeBtn) removeBtn.remove()
-      if (activeRemoveConfirm && activeRemoveConfirm.el === reorderEl) closeRemoveConfirm()
+    if (reorderEl) {
+      var leaving = !(e.relatedTarget && reorderEl.contains(e.relatedTarget))
+      console.log('[bridge] mouseout reorderable:', reorderEl.getAttribute('data-reorderable'), reorderEl.getAttribute('data-reorder-index'), '| leaving:', leaving, '| relatedTarget:', e.relatedTarget)
+      if (leaving) {
+        var handle = reorderEl.querySelector('.__drag-handle')
+        if (handle) handle.remove()
+        var removeBtn = reorderEl.querySelector('.__remove-btn')
+        if (removeBtn) removeBtn.remove()
+        if (activeRemoveConfirm && activeRemoveConfirm.el === reorderEl) closeRemoveConfirm()
+      }
     }
 
     // Hide image overlay when cursor leaves the image container
