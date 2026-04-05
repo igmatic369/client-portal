@@ -183,6 +183,56 @@
     '.__badge-option:hover {',
     '  background: #f3f4f6;',
     '}',
+    '.__icon-btn {',
+    '  position: absolute;',
+    '  bottom: 4px;',
+    '  right: 4px;',
+    '  background: rgba(0,0,0,0.55);',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 4px;',
+    '  font-size: 10px;',
+    '  height: 22px;',
+    '  padding: 0 6px;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  cursor: pointer;',
+    '  z-index: 9999;',
+    '  white-space: nowrap;',
+    '  user-select: none;',
+    '}',
+    '.__icon-popup {',
+    '  position: absolute;',
+    '  bottom: 30px;',
+    '  right: 4px;',
+    '  background: #fff;',
+    '  border: 1px solid #e5e7eb;',
+    '  border-radius: 8px;',
+    '  box-shadow: 0 4px 16px rgba(0,0,0,0.18);',
+    '  padding: 8px;',
+    '  z-index: 10005;',
+    '  display: grid;',
+    '  grid-template-columns: repeat(3, 1fr);',
+    '  gap: 4px;',
+    '  width: 210px;',
+    '  font-family: sans-serif;',
+    '}',
+    '.__icon-opt {',
+    '  background: #f9fafb;',
+    '  border: 1px solid #e5e7eb;',
+    '  border-radius: 4px;',
+    '  padding: 4px 4px;',
+    '  font-size: 10px;',
+    '  cursor: pointer;',
+    '  text-align: center;',
+    '  color: #374151;',
+    '}',
+    '.__icon-opt:hover {',
+    '  background: #fef3c7;',
+    '  border-color: #f97316;',
+    '  color: #c2410c;',
+    '}',
     '.__img-overlay {',
     '  position: absolute;',
     '  inset: 0;',
@@ -384,6 +434,50 @@
 
     el.appendChild(popup)
     activeRemoveConfirm = { el: el, popup: popup }
+  }
+
+  // ── Icon Picker State ──────────────────────────────────────────────────────
+
+  var ICON_OPTIONS = [
+    'ShoppingBag', 'Truck', 'Home', 'Recycle',
+    'MapPin', 'Leaf', 'Smile', 'Heart',
+    'Shield', 'Star', 'Sun', 'Moon',
+    'Cloud', 'Zap', 'Award', 'Gift',
+    'Camera', 'Music', 'Coffee', 'Book',
+    'Briefcase', 'Clock', 'Phone', 'Mail', 'Globe'
+  ]
+
+  var activeIconPopup = null  // { el, popup }
+
+  function closeIconPopup() {
+    if (!activeIconPopup) return
+    activeIconPopup.popup.remove()
+    activeIconPopup = null
+  }
+
+  function openIconPopup(el) {
+    closeIconPopup()
+    var arrayPath = el.getAttribute('data-reorderable')
+    var idx = parseInt(el.getAttribute('data-reorder-index'), 10)
+    var popup = document.createElement('div')
+    popup.className = '__icon-popup'
+    ICON_OPTIONS.forEach(function (iconName) {
+      var btn = document.createElement('button')
+      btn.className = '__icon-opt'
+      btn.textContent = iconName
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation()
+        window.parent.postMessage({
+          type: 'preview-field-change',
+          key: arrayPath + '.' + idx + '.icon',
+          value: iconName
+        }, '*')
+        closeIconPopup()
+      })
+      popup.appendChild(btn)
+    })
+    el.appendChild(popup)
+    activeIconPopup = { el: el, popup: popup }
   }
 
   // ── Image Overlay State ────────────────────────────────────────────────────
@@ -804,6 +898,22 @@
       reorderEl.appendChild(badgeBtn)
     }
 
+    // Icon picker button for how_it_works steps (and why_choose_us features when added)
+    var iconEl = e.target.closest('[data-reorderable="how_it_works.steps"]')
+    if (iconEl && !iconEl.querySelector('.__icon-btn')) {
+      var iconBtn = document.createElement('button')
+      iconBtn.className = '__icon-btn'
+      iconBtn.textContent = '\uD83D\uDD00 icon'  // 🔀 icon
+      iconBtn.title = 'Change icon'
+      iconBtn.addEventListener('click', function (ev) {
+        ev.stopImmediatePropagation()
+        ev.preventDefault()
+        var parent = ev.currentTarget.closest('[data-reorderable]')
+        if (parent) openIconPopup(parent)
+      })
+      iconEl.appendChild(iconBtn)
+    }
+
     // Pencil for explicit data-content-key elements
     var el = e.target.closest('[data-content-key]')
     if (el && !(currentEditor && currentEditor.element === el)) {
@@ -856,6 +966,14 @@
       var badgeBtn = badgeHost.querySelector('.__badge-btn')
       if (badgeBtn) badgeBtn.remove()
       if (activeBadgePopup && activeBadgePopup.pkgEl === badgeHost) closeBadgePopup()
+    }
+
+    // Remove icon button and close popup when cursor leaves a step card
+    var iconHost = e.target.closest('[data-reorderable="how_it_works.steps"]')
+    if (iconHost && !(e.relatedTarget && iconHost.contains(e.relatedTarget))) {
+      var iconBtn = iconHost.querySelector('.__icon-btn')
+      if (iconBtn) iconBtn.remove()
+      if (activeIconPopup && activeIconPopup.el === iconHost) closeIconPopup()
     }
 
     // Remove pencil — covers both explicit [data-content-key] and auto-detected
@@ -988,6 +1106,11 @@
       closeRemoveConfirm()
     }
 
+    // Close icon picker on outside click
+    if (activeIconPopup && !activeIconPopup.popup.contains(e.target)) {
+      closeIconPopup()
+    }
+
     // Anchors are handled entirely by the capture listener above
     if (e.target.closest('a')) return
     // Images are handled by the overlay buttons — skip clicks inside active image containers
@@ -1045,7 +1168,10 @@
 
     var styleProps = ['fontFamily', 'fontSize', 'fontWeight', 'color', 'lineHeight', 'textAlign', 'letterSpacing']
     styleProps.forEach(function (prop) { input.style[prop] = cs[prop] })
-    input.style.background = 'rgba(255,255,255,0.97)'
+    // Choose background based on text brightness — light text needs a dark bg
+    var rgb = cs.color.match(/\d+/g)
+    var brightness = rgb ? (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000 : 0
+    input.style.background = brightness > 180 ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.97)'
     input.style.border = '2px solid #3b82f6'
     input.style.borderRadius = '4px'
     input.style.padding = '2px 6px'

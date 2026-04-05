@@ -33,9 +33,9 @@ const ITEM_TEMPLATES = {
   'gallery.photos': { src: '', alt: 'New photo', label: 'New Photo', span: 'col-span-1 row-span-1' },
   'faq.questions': { q: 'New question?', a: 'Answer here.' },
   'why_choose_us.features': { title: 'New Feature', description: 'Feature description.' },
-  'how_it_works.steps': { number: '05', title: 'New Step', description: 'Step description.' },
+  'how_it_works.steps': { number: '05', icon: 'Star', title: 'New Step', description: 'Step description.' },
   service_areas: 'New City',
-  'business.social_links': { platform: 'New Contact', url: '' },
+  'business.social_links': { platform: '📌 New Contact', url: '' },
   'package_detail.mini_faq': { q: 'New question?', a: 'Answer here.' },
 }
 
