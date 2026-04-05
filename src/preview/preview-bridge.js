@@ -767,7 +767,8 @@
         removeBtn.addEventListener('click', function (ev) {
           ev.stopImmediatePropagation()
           ev.preventDefault()
-          openRemoveConfirm(reorderEl)
+          var parent = ev.currentTarget.closest('[data-reorderable]')
+          if (parent) openRemoveConfirm(parent)
         })
         reorderEl.appendChild(removeBtn)
         console.log('[bridge] injected remove-btn')
@@ -797,7 +798,8 @@
       badgeBtn.addEventListener('click', function (ev) {
         ev.stopImmediatePropagation()
         ev.preventDefault()
-        openBadgePopup(reorderEl)
+        var parent = ev.currentTarget.closest('[data-reorderable]')
+        if (parent) openBadgePopup(parent)
       })
       reorderEl.appendChild(badgeBtn)
     }
