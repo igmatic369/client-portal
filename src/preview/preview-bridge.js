@@ -599,8 +599,10 @@
   // The click handler decides whether an <a> click should edit or navigate.
   var SKIP_TAGS = { INPUT: 1, TEXTAREA: 1, BUTTON: 1, SCRIPT: 1, STYLE: 1, SELECT: 1 }
 
-  // Keys managed by the 🏷️ badge toggle — skip inline text editing for these
-  var BADGE_KEY_RE = /^packages\.\d+\.badge$|^addons\.\d+\.tag$/
+  // Keys that should not trigger inline text editing
+  // - packages.N.badge / addons.N.tag  → managed by 🏷️ badge toggle
+  // - gallery.photos.N.src / packages.N.image / addons.N.image → managed by image overlay
+  var BADGE_KEY_RE = /^packages\.\d+\.badge$|^addons\.\d+\.tag$|^gallery\.photos\.\d+\.src$|^packages\.\d+\.image$|^addons\.\d+\.image$/
 
   // Resolves a contentMap key for an element using three strategies:
   //   1. Direct child text nodes only (fastest, most precise)
