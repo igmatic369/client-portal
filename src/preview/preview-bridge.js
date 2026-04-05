@@ -51,6 +51,7 @@
     '}',
     '[data-reorderable] {',
     '  position: relative;',
+    '  overflow: visible !important;',
     '}',
     '.__drag-handle {',
     '  position: absolute;',
@@ -65,7 +66,8 @@
     '  display: flex;',
     '  align-items: center;',
     '  justify-content: center;',
-    '  pointer-events: none;',
+    '  pointer-events: all;',
+    '  cursor: grab;',
     '  z-index: 9998;',
     '  line-height: 1;',
     '  user-select: none;',
@@ -864,8 +866,10 @@
 
     var el = e.target.closest('[data-reorderable]')
     if (!el) return
-    // Allow drag from any child including buttons, but skip bridge-injected controls
-    if (e.target.closest('.__remove-btn, .__remove-popup, .__badge-btn, .__badge-popup, .__drag-handle')) return
+    // Skip bridge-injected controls (but NOT the drag handle — that's a valid drag initiator)
+    if (e.target.closest('.__remove-btn, .__remove-popup, .__badge-btn, .__badge-popup')) return
+    // For elements that contain interactive children (e.g. FAQ accordion), only allow drag from the handle
+    if (el.hasAttribute('data-drag-handle-only') && !e.target.closest('.__drag-handle')) return
 
     drag.pending = true
     drag.element = el

@@ -35,7 +35,8 @@ const ITEM_TEMPLATES = {
   'why_choose_us.features': { title: 'New Feature', description: 'Feature description.' },
   'how_it_works.steps': { number: '05', title: 'New Step', description: 'Step description.' },
   service_areas: 'New City',
-  'business.social_links': { platform: 'Facebook', url: 'https://' },
+  'business.social_links': { platform: 'New Contact', url: '' },
+  'package_detail.mini_faq': { q: 'New question?', a: 'Answer here.' },
 }
 
 // Immutably remove an item from a nested array at dot-path
