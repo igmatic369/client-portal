@@ -82,6 +82,7 @@ export default function Editor() {
   const latestContent    = useRef(null)
   const iframeRef        = useRef(null)
   const iframeReadyRef   = useRef(false)
+  const siteRef          = useRef(null)
 
   // ── Load site + schema + draft ──────────────────────────────────────────────
   useEffect(() => {
@@ -128,6 +129,7 @@ export default function Editor() {
 
       if (!cancelled) {
         setSite(siteRow)
+        siteRef.current = siteRow
         setSchema(siteRow.schema ?? null)
         setContent(initialContent)
         latestContent.current = initialContent
@@ -196,6 +198,44 @@ export default function Editor() {
         setContent(newContent)
         setDirty(true)
         sendContentToIframe(newContent)
+      }
+
+      if (event.data.type === 'preview-image-upload') {
+        ;(async () => {
+          const { fileData, fileName, mimeType, contentKey } = event.data
+          try {
+            // Base64 data URL → Blob
+            const base64 = fileData.split(',')[1]
+            const binary = atob(base64)
+            const bytes = new Uint8Array(binary.length)
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+            const blob = new Blob([bytes], { type: mimeType })
+
+            const slug = siteRef.current?.slug || siteId
+            const filePath = `${slug}/${Date.now()}-${fileName}`
+
+            const { error: uploadErr } = await supabase.storage
+              .from('site-images')
+              .upload(filePath, blob, { contentType: mimeType })
+
+            if (uploadErr) {
+              console.error('[Editor] image upload failed:', uploadErr)
+              return
+            }
+
+            const { data: urlData } = supabase.storage
+              .from('site-images')
+              .getPublicUrl(filePath)
+
+            const newContent = setNestedValue(latestContent.current, contentKey, urlData.publicUrl)
+            latestContent.current = newContent
+            setContent(newContent)
+            setDirty(true)
+            sendContentToIframe(newContent)
+          } catch (err) {
+            console.error('[Editor] image upload error:', err)
+          }
+        })()
       }
     }
 

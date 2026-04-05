@@ -118,6 +118,35 @@
     '.__badge-option:hover {',
     '  background: #f3f4f6;',
     '}',
+    '.__img-overlay {',
+    '  position: absolute;',
+    '  inset: 0;',
+    '  background: rgba(0,0,0,0.45);',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  gap: 8px;',
+    '  z-index: 9997;',
+    '  pointer-events: all;',
+    '}',
+    '.__img-action-btn {',
+    '  background: rgba(255,255,255,0.92);',
+    '  color: #1c1917;',
+    '  border: none;',
+    '  border-radius: 8px;',
+    '  padding: 7px 14px;',
+    '  font-size: 13px;',
+    '  font-weight: 600;',
+    '  font-family: sans-serif;',
+    '  cursor: pointer;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  gap: 5px;',
+    '  line-height: 1;',
+    '}',
+    '.__img-action-btn:hover {',
+    '  background: #fff;',
+    '}',
   ].join('\n')
   document.head.appendChild(style)
 
@@ -245,6 +274,74 @@
     activeBadgePopup = { pkgEl: reorderEl, popup: popup }
   }
 
+  // ── Image Overlay State ────────────────────────────────────────────────────
+
+  var activeImgOverlay = null  // { container, overlay }
+
+  function hideImageOverlay() {
+    if (!activeImgOverlay) return
+    activeImgOverlay.overlay.remove()
+    activeImgOverlay = null
+  }
+
+  function openFileInput(contentKey) {
+    var input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.style.display = 'none'
+    document.body.appendChild(input)
+    input.addEventListener('change', function () {
+      var file = input.files[0]
+      if (!file) { input.remove(); return }
+      hideImageOverlay()
+      var reader = new FileReader()
+      reader.onload = function (ev) {
+        window.parent.postMessage({
+          type: 'preview-image-upload',
+          fileData: ev.target.result,
+          fileName: file.name,
+          mimeType: file.type,
+          contentKey: contentKey,
+        }, '*')
+      }
+      reader.readAsDataURL(file)
+      input.remove()
+    })
+    input.click()
+  }
+
+  function showImageOverlay(img) {
+    if (activeImgOverlay && activeImgOverlay.overlay.parentElement === img.parentElement) return
+    hideImageOverlay()
+    var contentKey = img.getAttribute('data-content-key')
+    if (!contentKey) return
+
+    var overlay = document.createElement('div')
+    overlay.className = '__img-overlay'
+
+    var replaceBtn = document.createElement('button')
+    replaceBtn.className = '__img-action-btn'
+    replaceBtn.innerHTML = '\uD83D\uDD04 Replace'
+    replaceBtn.addEventListener('click', function (e) {
+      e.stopPropagation()
+      openFileInput(contentKey)
+    })
+
+    var removeBtn = document.createElement('button')
+    removeBtn.className = '__img-action-btn'
+    removeBtn.innerHTML = '\uD83D\uDDD1\uFE0F Remove'
+    removeBtn.addEventListener('click', function (e) {
+      e.stopPropagation()
+      window.parent.postMessage({ type: 'preview-field-change', key: contentKey, value: '' }, '*')
+      hideImageOverlay()
+    })
+
+    overlay.appendChild(replaceBtn)
+    overlay.appendChild(removeBtn)
+    img.parentElement.appendChild(overlay)
+    activeImgOverlay = { container: img.parentElement, overlay: overlay }
+  }
+
   // ── Content Map (for auto-detection) ──────────────────────────────────────
 
   var contentMap = Object.create(null)  // trimmed text → dotPath
@@ -302,7 +399,12 @@
     document.querySelectorAll('[data-content-key]').forEach(function (el) {
       if (currentEditor && currentEditor.element === el) return
       var val = getNestedValue(window.__PREVIEW_CONTENT__, el.getAttribute('data-content-key'))
-      if (typeof val === 'string') el.textContent = val
+      if (typeof val !== 'string') return
+      if (el.tagName === 'IMG') {
+        if (el.src !== val) el.src = val
+      } else {
+        el.textContent = val
+      }
     })
   })
 
@@ -540,6 +642,11 @@
       reorderEl.appendChild(handle)
     }
 
+    // Image overlay for tagged <img> elements
+    if (e.target.tagName === 'IMG' && e.target.hasAttribute('data-content-key')) {
+      showImageOverlay(e.target)
+    }
+
     // Badge toggle button for package and addon cards
     var reorderEl = e.target.closest('[data-reorderable="packages"], [data-reorderable="addons"]')
     if (reorderEl && !reorderEl.querySelector('.__badge-btn')) {
@@ -586,6 +693,12 @@
     if (reorderEl && !(e.relatedTarget && reorderEl.contains(e.relatedTarget))) {
       var handle = reorderEl.querySelector('.__drag-handle')
       if (handle) handle.remove()
+    }
+
+    // Hide image overlay when cursor leaves the image container
+    if (activeImgOverlay) {
+      var imgContainer = activeImgOverlay.container
+      if (!imgContainer.contains(e.relatedTarget)) hideImageOverlay()
     }
 
     // Remove badge button and close popup when cursor leaves a package/addon card
@@ -720,6 +833,8 @@
 
     // Anchors are handled entirely by the capture listener above
     if (e.target.closest('a')) return
+    // Images are handled by the overlay buttons
+    if (e.target.tagName === 'IMG') return
 
     var el = e.target.closest('[data-content-key]')
     var key = null
