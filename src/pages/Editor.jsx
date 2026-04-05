@@ -17,6 +17,50 @@ function setNestedValue(obj, dotPath, value) {
   return result
 }
 
+const ITEM_TEMPLATES = {
+  packages: {
+    name: 'New Package', slug: '', number: 6, price: '$0',
+    tagline: 'Package tagline', description: 'Package description',
+    image: '', includes: ['Included item'],
+    pumpkin_breakdown: [{ quantity: 0, type: 'Pumpkin type' }],
+    highlight: false, badge: null, best_for: 'Best for...', note: ''
+  },
+  addons: {
+    tag: 'Any Package', name: 'New Add-On', slug: '',
+    image: '', price: '$0', restricted: false,
+    description: 'Add-on description'
+  },
+  'gallery.photos': { src: '', alt: 'New photo', label: 'New Photo', span: 'col-span-1 row-span-1' },
+  'faq.questions': { q: 'New question?', a: 'Answer here.' },
+  'why_choose_us.features': { title: 'New Feature', description: 'Feature description.' },
+  'how_it_works.steps': { number: '05', title: 'New Step', description: 'Step description.' },
+  service_areas: 'New City',
+}
+
+// Immutably remove an item from a nested array at dot-path
+function removeItem(obj, arrayPath, index) {
+  const result = JSON.parse(JSON.stringify(obj))
+  const keys = arrayPath.split('.')
+  let arr = result
+  for (const k of keys) arr = arr[k]
+  arr.splice(index, 1)
+  return result
+}
+
+// Immutably append a template item to a nested array at dot-path
+function addItem(obj, arrayPath) {
+  const result = JSON.parse(JSON.stringify(obj))
+  const keys = arrayPath.split('.')
+  let arr = result
+  for (const k of keys) arr = arr[k]
+  let template = JSON.parse(JSON.stringify(ITEM_TEMPLATES[arrayPath] ?? {}))
+  if (template && typeof template === 'object' && 'slug' in template) {
+    template.slug = arrayPath.split('.')[0] + '-' + Date.now()
+  }
+  arr.push(template)
+  return result
+}
+
 // Immutably move an item within a nested array at dot-path
 function reorderArray(obj, arrayPath, fromIndex, toIndex) {
   const result = JSON.parse(JSON.stringify(obj))
@@ -194,6 +238,24 @@ export default function Editor() {
       if (event.data.type === 'preview-reorder') {
         const { arrayPath, fromIndex, toIndex } = event.data
         const newContent = reorderArray(latestContent.current, arrayPath, fromIndex, toIndex)
+        latestContent.current = newContent
+        setContent(newContent)
+        setDirty(true)
+        sendContentToIframe(newContent)
+      }
+
+      if (event.data.type === 'preview-remove-item') {
+        const { arrayPath, index } = event.data
+        const newContent = removeItem(latestContent.current, arrayPath, index)
+        latestContent.current = newContent
+        setContent(newContent)
+        setDirty(true)
+        sendContentToIframe(newContent)
+      }
+
+      if (event.data.type === 'preview-add-item') {
+        const { arrayPath } = event.data
+        const newContent = addItem(latestContent.current, arrayPath)
         latestContent.current = newContent
         setContent(newContent)
         setDirty(true)

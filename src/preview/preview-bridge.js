@@ -70,9 +70,73 @@
     '  line-height: 1;',
     '  user-select: none;',
     '}',
-    '.__badge-btn {',
+    '.__remove-btn {',
     '  position: absolute;',
     '  top: 4px;',
+    '  right: 4px;',
+    '  background: rgba(180,20,20,0.75);',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 4px;',
+    '  font-size: 13px;',
+    '  width: 22px;',
+    '  height: 22px;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  cursor: pointer;',
+    '  z-index: 9999;',
+    '  line-height: 1;',
+    '  user-select: none;',
+    '  padding: 0;',
+    '}',
+    '.__remove-popup {',
+    '  position: absolute;',
+    '  top: 30px;',
+    '  right: 4px;',
+    '  background: #fff;',
+    '  border: 1px solid #e5e7eb;',
+    '  border-radius: 8px;',
+    '  box-shadow: 0 4px 16px rgba(0,0,0,0.18);',
+    '  padding: 10px 12px;',
+    '  z-index: 10003;',
+    '  white-space: nowrap;',
+    '  font-family: sans-serif;',
+    '}',
+    '.__remove-popup p {',
+    '  font-size: 12px;',
+    '  color: #374151;',
+    '  margin: 0 0 8px;',
+    '}',
+    '.__remove-popup-btns {',
+    '  display: flex;',
+    '  gap: 6px;',
+    '}',
+    '.__remove-confirm {',
+    '  background: #dc2626;',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 5px;',
+    '  padding: 4px 10px;',
+    '  font-size: 12px;',
+    '  font-weight: 600;',
+    '  cursor: pointer;',
+    '  font-family: sans-serif;',
+    '}',
+    '.__remove-cancel {',
+    '  background: #f3f4f6;',
+    '  color: #374151;',
+    '  border: none;',
+    '  border-radius: 5px;',
+    '  padding: 4px 10px;',
+    '  font-size: 12px;',
+    '  font-weight: 600;',
+    '  cursor: pointer;',
+    '  font-family: sans-serif;',
+    '}',
+    '.__badge-btn {',
+    '  position: absolute;',
+    '  top: 30px;',  // moved down to make room for remove button
     '  right: 4px;',
     '  background: rgba(0,0,0,0.55);',
     '  color: #fff;',
@@ -272,6 +336,53 @@
 
     reorderEl.appendChild(popup)
     activeBadgePopup = { pkgEl: reorderEl, popup: popup }
+  }
+
+  // ── Remove Confirm State ───────────────────────────────────────────────────
+
+  var activeRemoveConfirm = null  // { el, popup }
+
+  function closeRemoveConfirm() {
+    if (!activeRemoveConfirm) return
+    activeRemoveConfirm.popup.remove()
+    activeRemoveConfirm = null
+  }
+
+  function openRemoveConfirm(el) {
+    closeRemoveConfirm()
+    var arrayPath = el.getAttribute('data-reorderable')
+    var idx = parseInt(el.getAttribute('data-reorder-index'), 10)
+
+    var popup = document.createElement('div')
+    popup.className = '__remove-popup'
+
+    var msg = document.createElement('p')
+    msg.textContent = 'Remove this item?'
+    popup.appendChild(msg)
+
+    var btns = document.createElement('div')
+    btns.className = '__remove-popup-btns'
+
+    var confirmBtn = document.createElement('button')
+    confirmBtn.className = '__remove-confirm'
+    confirmBtn.textContent = 'Remove'
+    confirmBtn.addEventListener('click', function (e) {
+      e.stopPropagation()
+      window.parent.postMessage({ type: 'preview-remove-item', arrayPath: arrayPath, index: idx }, '*')
+      closeRemoveConfirm()
+    })
+
+    var cancelBtn = document.createElement('button')
+    cancelBtn.className = '__remove-cancel'
+    cancelBtn.textContent = 'Cancel'
+    cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); closeRemoveConfirm() })
+
+    btns.appendChild(confirmBtn)
+    btns.appendChild(cancelBtn)
+    popup.appendChild(btns)
+
+    el.appendChild(popup)
+    activeRemoveConfirm = { el: el, popup: popup }
   }
 
   // ── Image Overlay State ────────────────────────────────────────────────────
@@ -636,13 +747,27 @@
   document.addEventListener('mouseover', function (e) {
     if (drag.active) return  // don't inject UI while dragging
 
-    // Drag handle for reorderable containers
+    // Drag handle + remove button for reorderable containers
     var reorderEl = e.target.closest('[data-reorderable]')
-    if (reorderEl && !reorderEl.querySelector('.__drag-handle')) {
-      var handle = document.createElement('span')
-      handle.className = '__drag-handle'
-      handle.textContent = '\u2807'  // ⠇ braille six-dot pattern (drag hint)
-      reorderEl.appendChild(handle)
+    if (reorderEl) {
+      if (!reorderEl.querySelector('.__drag-handle')) {
+        var handle = document.createElement('span')
+        handle.className = '__drag-handle'
+        handle.textContent = '\u2807'  // ⠇ braille six-dot pattern (drag hint)
+        reorderEl.appendChild(handle)
+      }
+      if (!reorderEl.querySelector('.__remove-btn')) {
+        var removeBtn = document.createElement('button')
+        removeBtn.className = '__remove-btn'
+        removeBtn.textContent = '\u2715'
+        removeBtn.title = 'Remove item'
+        removeBtn.addEventListener('click', function (ev) {
+          ev.stopImmediatePropagation()
+          ev.preventDefault()
+          openRemoveConfirm(reorderEl)
+        })
+        reorderEl.appendChild(removeBtn)
+      }
     }
 
     // Image overlay — find tagged <img> inside the hovered container.
@@ -699,11 +824,14 @@
   document.addEventListener('mouseout', function (e) {
     if (drag.active) return
 
-    // Remove drag handle when the cursor leaves the reorderable container
+    // Remove drag handle + remove button when the cursor leaves the reorderable container
     var reorderEl = e.target.closest('[data-reorderable]')
     if (reorderEl && !(e.relatedTarget && reorderEl.contains(e.relatedTarget))) {
       var handle = reorderEl.querySelector('.__drag-handle')
       if (handle) handle.remove()
+      var removeBtn = reorderEl.querySelector('.__remove-btn')
+      if (removeBtn) removeBtn.remove()
+      if (activeRemoveConfirm && activeRemoveConfirm.el === reorderEl) closeRemoveConfirm()
     }
 
     // Hide image overlay when cursor leaves the image container
@@ -840,6 +968,11 @@
     // Close badge popup on outside click
     if (activeBadgePopup && !activeBadgePopup.popup.contains(e.target)) {
       closeBadgePopup()
+    }
+
+    // Close remove confirm on outside click
+    if (activeRemoveConfirm && !activeRemoveConfirm.popup.contains(e.target)) {
+      closeRemoveConfirm()
     }
 
     // Anchors are handled entirely by the capture listener above
