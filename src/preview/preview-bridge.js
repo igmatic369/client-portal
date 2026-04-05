@@ -860,11 +860,12 @@
 
   document.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return
-    if (SKIP_TAGS[e.target.tagName]) return
     if (currentEditor) return
 
     var el = e.target.closest('[data-reorderable]')
     if (!el) return
+    // Allow drag from any child including buttons, but skip bridge-injected controls
+    if (e.target.closest('.__remove-btn, .__remove-popup, .__badge-btn, .__badge-popup, .__drag-handle')) return
 
     drag.pending = true
     drag.element = el
