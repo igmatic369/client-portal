@@ -516,28 +516,6 @@ export default function Editor() {
 
   const previewUrl = site?.netlify_url ? `${site.netlify_url}?preview=true` : null
 
-  // ── Loading / Error ─────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f4' }}>
-        <p style={{ color: '#78716c', fontSize: '14px' }}>Loading editor…</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f4' }}>
-        <div>
-          <p style={{ color: '#ef4444', marginBottom: '12px' }}>{error}</p>
-          <button type="button" onClick={() => navigate('/')} style={{ color: '#ea580c', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            ← Back to dashboard
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // ── Toolbar drag ────────────────────────────────────────────────────────────
   useEffect(() => {
     function onMouseMove(e) {
@@ -570,7 +548,6 @@ export default function Editor() {
       startElX: rect.left,
       startElY: rect.top,
     }
-    // Snap from centered to absolute on first drag
     if (!toolbarPos) {
       setToolbarPos({ x: rect.left, y: rect.top })
     }
@@ -579,6 +556,28 @@ export default function Editor() {
   const toolbarStyle = toolbarPos
     ? { position: 'fixed', top: toolbarPos.y + 'px', left: toolbarPos.x + 'px', transform: 'none' }
     : { position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)' }
+
+  // ── Loading / Error ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f4' }}>
+        <p style={{ color: '#78716c', fontSize: '14px' }}>Loading editor…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f4' }}>
+        <div>
+          <p style={{ color: '#ef4444', marginBottom: '12px' }}>{error}</p>
+          <button type="button" onClick={() => navigate('/')} style={{ color: '#ea580c', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            ← Back to dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
