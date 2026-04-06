@@ -307,27 +307,6 @@
     '.__contact-picker-option:hover {',
     '  background: #f3f4f6;',
     '}',
-    '.__bg-change-btn {',
-    '  position: absolute;',
-    '  top: 60px;',
-    '  right: 16px;',
-    '  background: rgba(0,0,0,0.65);',
-    '  color: #fff;',
-    '  border: none;',
-    '  border-radius: 20px;',
-    '  padding: 6px 14px;',
-    '  font-size: 12px;',
-    '  font-family: sans-serif;',
-    '  font-weight: 600;',
-    '  cursor: pointer;',
-    '  z-index: 9999;',
-    '  white-space: nowrap;',
-    '  user-select: none;',
-    '  pointer-events: all;',
-    '}',
-    '.__bg-change-btn:hover {',
-    '  background: rgba(0,0,0,0.85);',
-    '}',
   ].join('\n')
   document.head.appendChild(style)
 
@@ -731,8 +710,6 @@
       if (typeof val !== 'string') return
       if (el.tagName === 'IMG') {
         if (el.src !== val) el.src = val
-      } else if (BG_IMAGE_KEY_RE.test(el.getAttribute('data-content-key'))) {
-        if (val) el.style.backgroundImage = 'url(' + val + ')'
       } else {
         el.textContent = val
       }
@@ -933,7 +910,6 @@
   // - packages.N.badge / addons.N.tag  → managed by 🏷️ badge toggle
   // - gallery.photos.N.src / packages.N.image / addons.N.image → managed by image overlay
   var BADGE_KEY_RE = /^packages\.\d+\.badge$|^addons\.\d+\.tag$|^gallery\.photos\.\d+\.src$|^packages\.\d+\.image$|^addons\.\d+\.image$/
-  var BG_IMAGE_KEY_RE = /\.background_image$/
 
   // Resolves a contentMap key for an element using three strategies:
   //   1. Direct child text nodes only (fastest, most precise)
@@ -1055,24 +1031,9 @@
       iconEl.appendChild(iconBtn)
     }
 
-    // Pencil (or bg-change button) for explicit data-content-key elements
+    // Pencil for explicit data-content-key elements
     var el = e.target.closest('[data-content-key]')
     if (el && !(currentEditor && currentEditor.element === el)) {
-      if (BG_IMAGE_KEY_RE.test(el.getAttribute('data-content-key'))) {
-        // Background image element — show Change Background button instead of pencil
-        if (!el.querySelector('.__bg-change-btn')) {
-          var bgBtn = document.createElement('button')
-          bgBtn.className = '__bg-change-btn'
-          bgBtn.textContent = '\uD83D\uDCF7 Change Background'
-          bgBtn.addEventListener('click', function (ev) {
-            ev.stopImmediatePropagation()
-            ev.preventDefault()
-            openFileInput(el.getAttribute('data-content-key'))
-          })
-          el.appendChild(bgBtn)
-        }
-        return
-      }
       if (!el.querySelector('.__preview-pencil')) {
         var pencil = document.createElement('span')
         pencil.className = '__preview-pencil'
@@ -1139,15 +1100,6 @@
       if (activeContactPicker && activeContactPicker.el === contactHost) return
       var typeBtn = contactHost.querySelector('.__type-btn')
       if (typeBtn) typeBtn.remove()
-    }
-
-    // Remove bg-change button when cursor leaves a background-image element
-    var bgHost = e.target.closest('[data-content-key]')
-    if (bgHost && bgHost.style.backgroundImage && BG_IMAGE_KEY_RE.test(bgHost.getAttribute('data-content-key'))) {
-      if (!(e.relatedTarget && bgHost.contains(e.relatedTarget))) {
-        var bgChangeBtn = bgHost.querySelector('.__bg-change-btn')
-        if (bgChangeBtn) bgChangeBtn.remove()
-      }
     }
 
     // Remove pencil — covers both explicit [data-content-key] and auto-detected
@@ -1322,15 +1274,6 @@
     }
 
     if (!el || !key) return
-
-    // Background image elements open a file picker, not a text editor
-    if (BG_IMAGE_KEY_RE.test(key)) {
-      e.preventDefault()
-      e.stopPropagation()
-      openFileInput(key)
-      return
-    }
-
     if (currentEditor) return
 
     e.preventDefault()
