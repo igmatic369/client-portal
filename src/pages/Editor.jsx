@@ -121,6 +121,11 @@ export default function Editor() {
   // Ticker to force re-render of relative times every 30s
   const [, setTick] = useState(0)
 
+  // Toolbar drag state
+  const [toolbarPos, setToolbarPos]     = useState(null)  // null = centered default
+  const toolbarRef                      = useRef(null)
+  const toolbarDrag                     = useRef(null)  // { startMouseX, startMouseY, startElX, startElY }
+
   const bannerTimer      = useRef(null)
   const publishDoneTimer = useRef(null)
   const savedTimer       = useRef(null)
@@ -533,16 +538,55 @@ export default function Editor() {
     )
   }
 
+  // ── Toolbar drag ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    function onMouseMove(e) {
+      if (!toolbarDrag.current) return
+      const { startMouseX, startMouseY, startElX, startElY } = toolbarDrag.current
+      setToolbarPos({
+        x: startElX + (e.clientX - startMouseX),
+        y: startElY + (e.clientY - startMouseY),
+      })
+    }
+    function onMouseUp() {
+      toolbarDrag.current = null
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  function handleToolbarGripMouseDown(e) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const rect = toolbarRef.current?.getBoundingClientRect()
+    if (!rect) return
+    toolbarDrag.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startElX: rect.left,
+      startElY: rect.top,
+    }
+    // Snap from centered to absolute on first drag
+    if (!toolbarPos) {
+      setToolbarPos({ x: rect.left, y: rect.top })
+    }
+  }
+
+  const toolbarStyle = toolbarPos
+    ? { position: 'fixed', top: toolbarPos.y + 'px', left: toolbarPos.x + 'px', transform: 'none' }
+    : { position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)' }
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#f5f5f4' }}>
 
       {/* ── Floating Toolbar ─────────────────────────────────────────────────── */}
-      <div style={{
-        position: 'fixed',
-        top: '12px',
-        left: '50%',
-        transform: 'translateX(-50%)',
+      <div ref={toolbarRef} style={{
+        ...toolbarStyle,
         zIndex: 10000,
         height: '48px',
         background: '#ffffff',
@@ -550,12 +594,22 @@ export default function Editor() {
         boxShadow: '0 2px 12px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.07)',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 16px',
+        padding: '0 12px 0 8px',
         gap: '4px',
         maxWidth: '920px',
         width: 'max-content',
         whiteSpace: 'nowrap',
       }}>
+
+        {/* Drag grip */}
+        <span
+          onMouseDown={handleToolbarGripMouseDown}
+          onDoubleClick={() => setToolbarPos(null)}
+          title="Drag to move · Double-click to reset"
+          style={{ fontSize: '14px', color: '#a8a29e', cursor: 'grab', padding: '4px 6px 4px 2px', userSelect: 'none', lineHeight: 1 }}
+        >
+          ⠿
+        </span>
 
         {/* Exit */}
         <button
