@@ -37,6 +37,14 @@ const ITEM_TEMPLATES = {
   service_areas: 'New City',
   'business.contact_items': { type: 'custom', label: '' },
   'package_detail.mini_faq': { q: 'New question?', a: 'Answer here.' },
+  // LD Nails arrays
+  'hero.featured_services': { title: 'New Service', description: 'Description here.' },
+  reviews: { text: 'Review text...', author: 'Customer Name' },
+  hours: { day: 'Day Name', time: '9 a.m. – 5 p.m.' },
+  'gallery.images': { src: '', alt: 'Gallery image description' },
+  services: { title: 'New Service', image: '', description: 'Service description.', items: [] },
+  'about.features': 'New feature text',
+  'about.values': { icon: 'Heart', title: 'Value Title', description: 'Description.' },
 }
 
 // Immutably remove an item from a nested array at dot-path

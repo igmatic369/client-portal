@@ -1016,7 +1016,7 @@
     }
 
     // Icon picker button for how_it_works steps and why_choose_us features
-    var iconEl = e.target.closest('[data-reorderable="how_it_works.steps"], [data-reorderable="why_choose_us.features"]')
+    var iconEl = e.target.closest('[data-reorderable="how_it_works.steps"], [data-reorderable="why_choose_us.features"], [data-reorderable="about.values"]')
     if (iconEl && !iconEl.querySelector('.__icon-btn')) {
       var iconBtn = document.createElement('button')
       iconBtn.className = '__icon-btn'
@@ -1086,7 +1086,7 @@
     }
 
     // Remove icon button and close popup when cursor leaves a step/feature card
-    var iconHost = e.target.closest('[data-reorderable="how_it_works.steps"], [data-reorderable="why_choose_us.features"]')
+    var iconHost = e.target.closest('[data-reorderable="how_it_works.steps"], [data-reorderable="why_choose_us.features"], [data-reorderable="about.values"]')
     if (iconHost && !(e.relatedTarget && iconHost.contains(e.relatedTarget))) {
       var iconBtn = iconHost.querySelector('.__icon-btn')
       if (iconBtn) iconBtn.remove()
