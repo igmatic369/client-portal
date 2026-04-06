@@ -1132,12 +1132,13 @@
       if (activeIconPopup && activeIconPopup.el === iconHost) closeIconPopup()
     }
 
-    // Remove contact type button and close picker when cursor leaves a contact item
+    // Remove contact type button when cursor leaves a contact item
+    // Guard: if picker is open for this element, keep everything alive
     var contactHost = e.target.closest('[data-reorderable="business.contact_items"]')
     if (contactHost && !(e.relatedTarget && contactHost.contains(e.relatedTarget))) {
+      if (activeContactPicker && activeContactPicker.el === contactHost) return
       var typeBtn = contactHost.querySelector('.__type-btn')
       if (typeBtn) typeBtn.remove()
-      if (activeContactPicker && activeContactPicker.el === contactHost) closeContactPicker()
     }
 
     // Remove bg-change button when cursor leaves a background-image element
