@@ -32,10 +32,10 @@ const ITEM_TEMPLATES = {
   },
   'gallery.photos': { src: '', alt: 'New photo', label: 'New Photo', span: 'col-span-1 row-span-1' },
   'faq.questions': { q: 'New question?', a: 'Answer here.' },
-  'why_choose_us.features': { title: 'New Feature', description: 'Feature description.' },
+  'why_choose_us.features': { icon: 'Star', title: 'New Feature', description: 'Feature description.' },
   'how_it_works.steps': { number: '05', icon: 'Star', title: 'New Step', description: 'Step description.' },
   service_areas: 'New City',
-  'business.social_links': { platform: '📌 New Contact', url: '' },
+  'business.contact_items': { type: 'custom', label: '' },
   'package_detail.mini_faq': { q: 'New question?', a: 'Answer here.' },
 }
 
@@ -262,6 +262,25 @@ export default function Editor() {
         setContent(newContent)
         setDirty(true)
         sendContentToIframe(newContent)
+      }
+
+      if (event.data.type === 'preview-add-contact') {
+        const { contactType } = event.data
+        const CONTACT_LABELS = {
+          email: 'your@email.com', phone: '(250) 000-0000', location: 'City, Province',
+          instagram: 'instagram.com/yourhandle', facebook: 'facebook.com/yourpage',
+          linkedin: 'linkedin.com/in/yourprofile', website: 'yourwebsite.com',
+          whatsapp: '(250) 000-0000', twitter: '@yourhandle', youtube: 'youtube.com/yourchannel',
+          tiktok: '@yourhandle', custom: 'Contact info',
+        }
+        const newItem = { type: contactType, label: CONTACT_LABELS[contactType] || '' }
+        const result = JSON.parse(JSON.stringify(latestContent.current))
+        if (!result.business.contact_items) result.business.contact_items = []
+        result.business.contact_items.push(newItem)
+        latestContent.current = result
+        setContent(result)
+        setDirty(true)
+        sendContentToIframe(result)
       }
 
       if (event.data.type === 'preview-image-upload') {

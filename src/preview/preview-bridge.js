@@ -262,6 +262,72 @@
     '.__img-action-btn:hover {',
     '  background: #fff;',
     '}',
+    '.__type-btn {',
+    '  position: absolute;',
+    '  bottom: 4px;',
+    '  right: 4px;',
+    '  background: rgba(0,0,0,0.55);',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 4px;',
+    '  font-size: 10px;',
+    '  height: 22px;',
+    '  padding: 0 6px;',
+    '  display: flex;',
+    '  align-items: center;',
+    '  justify-content: center;',
+    '  cursor: pointer;',
+    '  z-index: 9999;',
+    '  white-space: nowrap;',
+    '  user-select: none;',
+    '}',
+    '.__contact-picker-popup {',
+    '  background: #fff;',
+    '  border: 1px solid #e5e7eb;',
+    '  border-radius: 8px;',
+    '  box-shadow: 0 4px 20px rgba(0,0,0,0.18);',
+    '  padding: 4px;',
+    '  z-index: 10006;',
+    '  min-width: 160px;',
+    '  font-family: sans-serif;',
+    '}',
+    '.__contact-picker-option {',
+    '  display: block;',
+    '  width: 100%;',
+    '  text-align: left;',
+    '  padding: 6px 10px;',
+    '  font-size: 12px;',
+    '  font-family: sans-serif;',
+    '  background: none;',
+    '  border: none;',
+    '  cursor: pointer;',
+    '  border-radius: 4px;',
+    '  white-space: nowrap;',
+    '}',
+    '.__contact-picker-option:hover {',
+    '  background: #f3f4f6;',
+    '}',
+    '.__bg-change-btn {',
+    '  position: absolute;',
+    '  top: 60px;',
+    '  right: 16px;',
+    '  background: rgba(0,0,0,0.65);',
+    '  color: #fff;',
+    '  border: none;',
+    '  border-radius: 20px;',
+    '  padding: 6px 14px;',
+    '  font-size: 12px;',
+    '  font-family: sans-serif;',
+    '  font-weight: 600;',
+    '  cursor: pointer;',
+    '  z-index: 9999;',
+    '  white-space: nowrap;',
+    '  user-select: none;',
+    '  pointer-events: all;',
+    '}',
+    '.__bg-change-btn:hover {',
+    '  background: rgba(0,0,0,0.85);',
+    '}',
   ].join('\n')
   document.head.appendChild(style)
 
@@ -480,6 +546,62 @@
     activeIconPopup = { el: el, popup: popup }
   }
 
+  // ── Contact Picker State ───────────────────────────────────────────────────
+
+  var CONTACT_TYPE_OPTIONS = [
+    { type: 'email',     emoji: '\uD83D\uDCE7', label: 'Email' },
+    { type: 'phone',     emoji: '\uD83D\uDCF1', label: 'Phone' },
+    { type: 'location',  emoji: '\uD83D\uDCCD', label: 'Location' },
+    { type: 'instagram', emoji: '\uD83D\uDCF8', label: 'Instagram' },
+    { type: 'facebook',  emoji: '\uD83D\uDCD8', label: 'Facebook' },
+    { type: 'linkedin',  emoji: '\uD83D\uDCBC', label: 'LinkedIn' },
+    { type: 'website',   emoji: '\uD83C\uDF10', label: 'Website' },
+    { type: 'whatsapp',  emoji: '\uD83D\uDCAC', label: 'WhatsApp' },
+    { type: 'twitter',   emoji: '\uD83D\uDC26', label: 'Twitter' },
+    { type: 'youtube',   emoji: '\u25B6\uFE0F', label: 'YouTube' },
+    { type: 'tiktok',    emoji: '\uD83C\uDFB5', label: 'TikTok' },
+    { type: 'custom',    emoji: '\u270F\uFE0F', label: 'Custom' },
+  ]
+
+  var activeContactPicker = null  // { el, popup, mode }
+
+  function closeContactPicker() {
+    if (!activeContactPicker) return
+    activeContactPicker.popup.remove()
+    activeContactPicker = null
+  }
+
+  function openContactPicker(anchorEl, mode, reorderEl) {
+    closeContactPicker()
+    var idx = reorderEl ? parseInt(reorderEl.getAttribute('data-reorder-index'), 10) : -1
+    var popup = document.createElement('div')
+    popup.className = '__contact-picker-popup'
+    popup.style.position = 'fixed'
+    popup.style.zIndex = '10006'
+
+    CONTACT_TYPE_OPTIONS.forEach(function (opt) {
+      var btn = document.createElement('button')
+      btn.className = '__contact-picker-option'
+      btn.textContent = opt.emoji + ' ' + opt.label
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation()
+        if (mode === 'add') {
+          window.parent.postMessage({ type: 'preview-add-contact', contactType: opt.type, label: '' }, '*')
+        } else {
+          window.parent.postMessage({ type: 'preview-field-change', key: 'business.contact_items.' + idx + '.type', value: opt.type }, '*')
+        }
+        closeContactPicker()
+      })
+      popup.appendChild(btn)
+    })
+
+    document.body.appendChild(popup)
+    var rect = anchorEl.getBoundingClientRect()
+    popup.style.top = (rect.bottom + 4) + 'px'
+    popup.style.left = rect.left + 'px'
+    activeContactPicker = { el: reorderEl, popup: popup, mode: mode }
+  }
+
   // ── Image Overlay State ────────────────────────────────────────────────────
 
   var activeImgOverlay = null  // { container, overlay }
@@ -609,6 +731,8 @@
       if (typeof val !== 'string') return
       if (el.tagName === 'IMG') {
         if (el.src !== val) el.src = val
+      } else if (BG_IMAGE_KEY_RE.test(el.getAttribute('data-content-key'))) {
+        if (val) el.style.backgroundImage = 'url(' + val + ')'
       } else {
         el.textContent = val
       }
@@ -809,6 +933,7 @@
   // - packages.N.badge / addons.N.tag  → managed by 🏷️ badge toggle
   // - gallery.photos.N.src / packages.N.image / addons.N.image → managed by image overlay
   var BADGE_KEY_RE = /^packages\.\d+\.badge$|^addons\.\d+\.tag$|^gallery\.photos\.\d+\.src$|^packages\.\d+\.image$|^addons\.\d+\.image$/
+  var BG_IMAGE_KEY_RE = /\.background_image$/
 
   // Resolves a contentMap key for an element using three strategies:
   //   1. Direct child text nodes only (fastest, most precise)
@@ -898,8 +1023,24 @@
       reorderEl.appendChild(badgeBtn)
     }
 
-    // Icon picker button for how_it_works steps (and why_choose_us features when added)
-    var iconEl = e.target.closest('[data-reorderable="how_it_works.steps"]')
+    // Contact type-change button for contact items
+    var contactEl = e.target.closest('[data-reorderable="business.contact_items"]')
+    if (contactEl && !contactEl.querySelector('.__type-btn')) {
+      var typeBtn = document.createElement('button')
+      typeBtn.className = '__type-btn'
+      typeBtn.textContent = '\uD83D\uDD04 type'
+      typeBtn.title = 'Change contact type'
+      typeBtn.addEventListener('click', function (ev) {
+        ev.stopImmediatePropagation()
+        ev.preventDefault()
+        var parent = ev.currentTarget.closest('[data-reorderable]')
+        if (parent) openContactPicker(ev.currentTarget, 'change', parent)
+      })
+      contactEl.appendChild(typeBtn)
+    }
+
+    // Icon picker button for how_it_works steps and why_choose_us features
+    var iconEl = e.target.closest('[data-reorderable="how_it_works.steps"], [data-reorderable="why_choose_us.features"]')
     if (iconEl && !iconEl.querySelector('.__icon-btn')) {
       var iconBtn = document.createElement('button')
       iconBtn.className = '__icon-btn'
@@ -914,9 +1055,24 @@
       iconEl.appendChild(iconBtn)
     }
 
-    // Pencil for explicit data-content-key elements
+    // Pencil (or bg-change button) for explicit data-content-key elements
     var el = e.target.closest('[data-content-key]')
     if (el && !(currentEditor && currentEditor.element === el)) {
+      if (BG_IMAGE_KEY_RE.test(el.getAttribute('data-content-key'))) {
+        // Background image element — show Change Background button instead of pencil
+        if (!el.querySelector('.__bg-change-btn')) {
+          var bgBtn = document.createElement('button')
+          bgBtn.className = '__bg-change-btn'
+          bgBtn.textContent = '\uD83D\uDCF7 Change Background'
+          bgBtn.addEventListener('click', function (ev) {
+            ev.stopImmediatePropagation()
+            ev.preventDefault()
+            openFileInput(el.getAttribute('data-content-key'))
+          })
+          el.appendChild(bgBtn)
+        }
+        return
+      }
       if (!el.querySelector('.__preview-pencil')) {
         var pencil = document.createElement('span')
         pencil.className = '__preview-pencil'
@@ -968,12 +1124,29 @@
       if (activeBadgePopup && activeBadgePopup.pkgEl === badgeHost) closeBadgePopup()
     }
 
-    // Remove icon button and close popup when cursor leaves a step card
-    var iconHost = e.target.closest('[data-reorderable="how_it_works.steps"]')
+    // Remove icon button and close popup when cursor leaves a step/feature card
+    var iconHost = e.target.closest('[data-reorderable="how_it_works.steps"], [data-reorderable="why_choose_us.features"]')
     if (iconHost && !(e.relatedTarget && iconHost.contains(e.relatedTarget))) {
       var iconBtn = iconHost.querySelector('.__icon-btn')
       if (iconBtn) iconBtn.remove()
       if (activeIconPopup && activeIconPopup.el === iconHost) closeIconPopup()
+    }
+
+    // Remove contact type button and close picker when cursor leaves a contact item
+    var contactHost = e.target.closest('[data-reorderable="business.contact_items"]')
+    if (contactHost && !(e.relatedTarget && contactHost.contains(e.relatedTarget))) {
+      var typeBtn = contactHost.querySelector('.__type-btn')
+      if (typeBtn) typeBtn.remove()
+      if (activeContactPicker && activeContactPicker.el === contactHost) closeContactPicker()
+    }
+
+    // Remove bg-change button when cursor leaves a background-image element
+    var bgHost = e.target.closest('[data-content-key]')
+    if (bgHost && bgHost.style.backgroundImage && BG_IMAGE_KEY_RE.test(bgHost.getAttribute('data-content-key'))) {
+      if (!(e.relatedTarget && bgHost.contains(e.relatedTarget))) {
+        var bgChangeBtn = bgHost.querySelector('.__bg-change-btn')
+        if (bgChangeBtn) bgChangeBtn.remove()
+      }
     }
 
     // Remove pencil — covers both explicit [data-content-key] and auto-detected
@@ -993,7 +1166,7 @@
     var el = e.target.closest('[data-reorderable]')
     if (!el) return
     // Skip bridge-injected controls (but NOT the drag handle — that's a valid drag initiator)
-    if (e.target.closest('.__remove-btn, .__remove-popup, .__badge-btn, .__badge-popup')) return
+    if (e.target.closest('.__remove-btn, .__remove-popup, .__badge-btn, .__badge-popup, .__type-btn, .__contact-picker-popup')) return
     // For elements that contain interactive children (e.g. FAQ accordion), only allow drag from the handle
     if (el.hasAttribute('data-drag-handle-only') && !e.target.closest('.__drag-handle')) return
 
@@ -1111,6 +1284,19 @@
       closeIconPopup()
     }
 
+    // Close contact picker on outside click
+    if (activeContactPicker && !activeContactPicker.popup.contains(e.target)) {
+      closeContactPicker()
+    }
+
+    // Contact picker add button
+    if (e.target.closest('[data-contact-picker]')) {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      openContactPicker(e.target.closest('[data-contact-picker]'), 'add', null)
+      return
+    }
+
     // Anchors are handled entirely by the capture listener above
     if (e.target.closest('a')) return
     // Images are handled by the overlay buttons — skip clicks inside active image containers
@@ -1135,6 +1321,15 @@
     }
 
     if (!el || !key) return
+
+    // Background image elements open a file picker, not a text editor
+    if (BG_IMAGE_KEY_RE.test(key)) {
+      e.preventDefault()
+      e.stopPropagation()
+      openFileInput(key)
+      return
+    }
+
     if (currentEditor) return
 
     e.preventDefault()
